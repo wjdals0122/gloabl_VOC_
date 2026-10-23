@@ -15,7 +15,10 @@ const AppConfig = {
     // 2단계: 선택 출처 수집 API (국가, 제품, 선택 출처 목록 전달 -> CSV 파일 반환)
     collectSelectedSources: 'http://localhost:5678/webhook/collect-selected-sources',
 
-    // 참고: 기존 단일 Webhook (일괄 실행이므로 출처 찾기에 연결 금지)
+    // ⚡ n8n 단일 일괄 즉시 수집 Webhook (테스트 모드: webhook-test, 상시 모드: webhook)
+    instantWebhook: 'http://localhost:5678/webhook-test/collect-global-voc',
+
+    // 참고: 기존 단일 Webhook
     legacySingleWebhook: 'http://localhost:5678/webhook/collect-global-voc'
   },
 
@@ -53,19 +56,22 @@ const AppConfig = {
         const parsed = JSON.parse(saved);
         if (parsed.discoverSources) this.endpoints.discoverSources = parsed.discoverSources;
         if (parsed.collectSelectedSources) this.endpoints.collectSelectedSources = parsed.collectSelectedSources;
+        if (parsed.instantWebhook) this.endpoints.instantWebhook = parsed.instantWebhook;
       }
     } catch (e) {
       console.warn('[Config] 커스텀 엔드포인트 로드 실패:', e);
     }
   },
 
-  saveCustomEndpoints(discoverUrl, collectUrl) {
+  saveCustomEndpoints(discoverUrl, collectUrl, instantUrl) {
     this.endpoints.discoverSources = discoverUrl || this.endpoints.discoverSources;
     this.endpoints.collectSelectedSources = collectUrl || this.endpoints.collectSelectedSources;
+    this.endpoints.instantWebhook = instantUrl || this.endpoints.instantWebhook;
     try {
       localStorage.setItem('voc_custom_endpoints', JSON.stringify({
         discoverSources: this.endpoints.discoverSources,
-        collectSelectedSources: this.endpoints.collectSelectedSources
+        collectSelectedSources: this.endpoints.collectSelectedSources,
+        instantWebhook: this.endpoints.instantWebhook
       }));
     } catch (e) {}
   }

@@ -116,6 +116,85 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // --- [로컬 프록시 API: n8n Webhook 연동 및 CORS 우회 지원] ---
+  if (req.method === 'POST' && pathname === '/api/proxy-collect-voc') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const payload = JSON.parse(body || '{}');
+        const country = payload.country || 'US';
+        const product = payload.product || 'Standard Product';
+        const targetUrl = payload.webhookUrl || 'http://localhost:5678/webhook-test/collect-global-voc';
+        const proxyType = payload.proxy_type || 'datacenter';
+        const extractionType = payload.extraction_type || 'markdown';
+        const apiKey = payload.api_key;
+
+        const forwardPayload = JSON.stringify({
+          country,
+          product,
+          proxy_type: proxyType,
+          extraction_type: extractionType,
+          ...(apiKey ? { api_key: apiKey } : {})
+        });
+
+        const parsedTarget = url.parse(targetUrl);
+        const isHttps = parsedTarget.protocol === 'https:';
+        const clientLib = isHttps ? require('https') : require('http');
+
+        const proxyReq = clientLib.request({
+          protocol: parsedTarget.protocol,
+          hostname: parsedTarget.hostname,
+          port: parsedTarget.port,
+          path: parsedTarget.path,
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(forwardPayload)
+          },
+          timeout: 120000 // 2분 대기
+        }, (proxyRes) => {
+          let chunks = [];
+          proxyRes.on('data', chunk => chunks.push(chunk));
+          proxyRes.on('end', () => {
+            const buffer = Buffer.concat(chunks);
+            const contentType = proxyRes.headers['content-type'] || 'text/plain; charset=utf-8';
+
+            res.writeHead(proxyRes.statusCode, {
+              'Content-Type': contentType,
+              'Access-Control-Allow-Origin': '*'
+            });
+            res.end(buffer);
+          });
+        });
+
+        proxyReq.on('timeout', () => {
+          proxyReq.destroy();
+          res.writeHead(504, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({
+            error: 'Gateway Timeout',
+            message: 'n8n 워크플로우 처리 대기 시간이 초과되었습니다 (120초).'
+          }));
+        });
+
+        proxyReq.on('error', (err) => {
+          res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({
+            error: 'n8n Connection Failed',
+            message: `n8n 서버(${targetUrl}) 연결에 실패했습니다: ${err.message}. n8n이 구동 중인지 확인해주세요.`
+          }));
+        });
+
+        proxyReq.write(forwardPayload);
+        proxyReq.end();
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'Invalid JSON request', details: err.message }));
+      }
+    });
+    return;
+  }
+
   // 정적 파일 서빙
   let filePath = path.join(DASHBOARD_DIR, pathname === '/' ? 'index.html' : pathname);
   const ext = path.extname(filePath).toLowerCase();

@@ -24,7 +24,8 @@ const ResultsView = {
     expandedItemIds: new Set(),
     selectedDetailItem: null,
     searchFilter: '',
-    isTechInfoOpen: false
+    isTechInfoOpen: false,
+    isInstantMode: false
   },
 
   init() {
@@ -35,12 +36,55 @@ const ResultsView = {
     this.state.country = country;
     this.state.product = product;
     this.state.selectedSources = sources || [];
+    this.state.isInstantMode = false;
     this.state.collectionStatus = AppConfig.CollectionStatus.IDLE;
     this.state.statusMessage = `${this.state.selectedSources.length}개 출처가 선택되었습니다.`;
     this.state.rawCsvText = '';
     this.state.results = [];
     this.state.expandedItemIds.clear();
     this.render();
+  },
+
+  async startInstantCollection(country, product) {
+    this.state.country = country;
+    this.state.product = product;
+    this.state.selectedSources = [];
+    this.state.isInstantMode = true;
+    this.state.collectionStatus = AppConfig.CollectionStatus.PROCESSING;
+    this.state.statusMessage = 'n8n Webhook(collect-global-voc) 호출 중: AI 후보 출처 탐색 및 스크래핑을 일괄 실행하고 있습니다...';
+    this.state.rawCsvText = '';
+    this.state.results = [];
+    this.state.expandedItemIds.clear();
+    this.render();
+
+    const startTime = Date.now();
+
+    try {
+      const res = await VocApiClient.collectInstantWebhook(country, product);
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+
+      this.state.collectionStatus = AppConfig.CollectionStatus.COMPLETED;
+      this.state.rawCsvText = res.csvText;
+      this.state.results = CsvUtils.parseResultCsv(res.csvText);
+      this.state.statusMessage = `n8n 일괄 수집 완료: ${this.state.results.length}개 사이트 데이터 수신 (${elapsed}초 소요)`;
+      this.state.expandedItemIds = new Set(this.state.results.map(r => r.id));
+
+      try {
+        localStorage.setItem('voc_last_session_result', JSON.stringify({
+          country: this.state.country,
+          product: this.state.product,
+          rawCsv: res.csvText,
+          timestamp: new Date().toISOString()
+        }));
+      } catch (e) {}
+
+    } catch (error) {
+      this.state.collectionStatus = AppConfig.CollectionStatus.FAILED;
+      this.state.statusMessage = `수집 실패: ${error.message || '요청 처리 중 오류가 발생했습니다.'}`;
+      console.error('[ResultsView] n8n 일괄 수집 오류:', error);
+    } finally {
+      this.render();
+    }
   },
 
   async startCollection() {
@@ -191,18 +235,52 @@ const ResultsView = {
 
     let subTabContentHtml = '';
     if (!hasResults && !isProcessing) {
-      subTabContentHtml = `
-        <div class="empty-state-card text-center">
-          <h3>수집된 결과가 없습니다.</h3>
-          <p>상단의 <strong>[수집 시작]</strong> 버튼을 클릭하여 스크래핑을 실행하세요.</p>
-        </div>
-      `;
+      if (this.state.collectionStatus === AppConfig.CollectionStatus.FAILED) {
+        subTabContentHtml = `
+          <div class="empty-state-card text-center">
+            <div class="n8n-alert-card">
+              <div class="n8n-alert-header">
+                <span class="alert-icon">⚠️</span>
+                <h4>수집 요청 실패 안내</h4>
+              </div>
+              <p class="alert-message">${CsvUtils.escapeHtml(this.state.statusMessage)}</p>
+              <div class="n8n-guide-box">
+                <strong>💡 n8n 연결 및 수신 체크리스트:</strong>
+                <ol>
+                  <li><strong>n8n 실행 확인:</strong> 브라우저에서 <a href="http://localhost:5678" target="_blank" rel="noopener noreferrer">http://localhost:5678 ↗</a>이 열리는지 확인하세요.</li>
+                  <li><strong>테스트 이벤트 대기:</strong> n8n 캔버스에서 <strong>[Execute workflow]</strong> (또는 Webhook 노드의 <strong>[Listen for test event]</strong>)를 클릭합니다.</li>
+                  <li><strong>상시 수신 설정(권장):</strong> 워크플로우를 상시 수신하려면 상단 토글을 <strong>Active(ON)</strong>로 켜고, 설정(⚙️)에서 엔드포인트를 <code>/webhook/collect-global-voc</code>로 지정하세요.</li>
+                </ol>
+              </div>
+              <div class="alert-action-row">
+                ${this.state.isInstantMode ? `
+                  <button type="button" class="btn btn-instant" onclick="ResultsView.startInstantCollection(ResultsView.state.country, ResultsView.state.product)">
+                    ⚡ n8n 즉시 재수집 시도
+                  </button>
+                ` : `
+                  <button type="button" class="btn btn-primary" onclick="ResultsView.startCollection()">
+                    다시 시도
+                  </button>
+                `}
+              </div>
+            </div>
+          </div>
+        `;
+      } else {
+        subTabContentHtml = `
+          <div class="empty-state-card text-center">
+            <h3>수집된 결과가 없습니다.</h3>
+            <p>상단의 <strong>[${this.state.isInstantMode ? 'n8n 일괄 즉시 수집' : '수집 시작'}]</strong> 버튼을 클릭하여 스크래핑을 실행하세요.</p>
+          </div>
+        `;
+      }
     } else if (isProcessing) {
       subTabContentHtml = `
         <div class="loading-state-card">
           <div class="spinner"></div>
           <h4>수집 요청 처리 중</h4>
           <p>${CsvUtils.escapeHtml(this.state.statusMessage)}</p>
+          <span class="loading-hint">AI 출처 탐색 및 ScrapingAnt 웹 스크래핑이 진행되는 동안 잠시만 기다려주세요 (약 10~30초).</span>
         </div>
       `;
     } else if (this.state.activeSubTab === 'content') {
@@ -223,12 +301,24 @@ const ResultsView = {
               <div><strong>프록시 유형:</strong> ${AppConfig.serverSideSettings.proxyType}</div>
               <div><strong>추출 방식:</strong> ${AppConfig.serverSideSettings.extractionType}</div>
               <div><strong>보안 키:</strong> ${AppConfig.serverSideSettings.apiKeyStatus}</div>
-              <div><strong>수집 엔드포인트:</strong> <code>${AppConfig.endpoints.collectSelectedSources}</code></div>
+              <div><strong>수집 엔드포인트:</strong> <code>${this.state.isInstantMode ? AppConfig.endpoints.instantWebhook : AppConfig.endpoints.collectSelectedSources}</code></div>
             </div>
           </div>
         ` : ''}
       </div>
     `;
+
+    const countBadgeHtml = this.state.isInstantMode
+      ? `<span class="target-count-badge badge-instant-mode">⚡ n8n 일괄 즉시 수집 모드</span>`
+      : `<span class="target-count-badge">선택 출처: ${selectedCount}개</span>`;
+
+    const actionButtonHtml = this.state.isInstantMode
+      ? `<button type="button" class="btn btn-instant" id="btn-start-collection" ${isProcessing ? 'disabled' : ''} onclick="ResultsView.startInstantCollection(ResultsView.state.country, ResultsView.state.product)">
+          ${isProcessing ? '처리 중...' : '⚡ n8n 일괄 재수집'}
+        </button>`
+      : `<button type="button" class="btn btn-primary" id="btn-start-collection" ${isProcessing || selectedCount === 0 ? 'disabled' : ''} onclick="ResultsView.startCollection()">
+          ${isProcessing ? '처리 중...' : '수집 시작'}
+        </button>`;
 
     container.innerHTML = `
       <!-- 수집 컨트롤 카드 -->
@@ -238,7 +328,7 @@ const ResultsView = {
             <span class="summary-label">수집 대상:</span>
             <span class="badge badge-neutral">${this.state.country}</span>
             <strong class="target-product-name">${CsvUtils.escapeHtml(this.state.product)}</strong>
-            <span class="target-count-badge">선택 출처: ${selectedCount}개</span>
+            ${countBadgeHtml}
           </div>
 
           <div class="status-box">
@@ -248,9 +338,7 @@ const ResultsView = {
           </div>
 
           <div class="action-buttons">
-            <button type="button" class="btn btn-primary" id="btn-start-collection" ${isProcessing || selectedCount === 0 ? 'disabled' : ''} onclick="ResultsView.startCollection()">
-              ${isProcessing ? '처리 중...' : '수집 시작'}
-            </button>
+            ${actionButtonHtml}
             <button type="button" class="btn btn-outline" id="btn-download-results-csv" ${!hasResults ? 'disabled' : ''} onclick="ResultsView.downloadResultCsv()">
               수집 결과 CSV 다운로드
             </button>

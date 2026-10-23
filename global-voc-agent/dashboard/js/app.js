@@ -23,8 +23,16 @@ const App = {
     SourceView.init();
     ResultsView.init();
 
-    // 3. 모드 UI 반영
+    // 3. 모드 UI 반영 및 Webhook 주소 라벨 갱신
     this.updateModeUI();
+    this.updateWebhookIndicator();
+  },
+
+  updateWebhookIndicator() {
+    const el = document.getElementById('label-instant-webhook');
+    if (el && AppConfig.endpoints && AppConfig.endpoints.instantWebhook) {
+      el.textContent = AppConfig.endpoints.instantWebhook;
+    }
   },
 
   bindHeaderControls() {

@@ -76,10 +76,16 @@
           </div>
 
           <div class="form-group-action">
-            <button type="button" class="btn btn-primary btn-search" id="btn-discover-sources">
-              출처 찾기
+            <button type="button" class="btn btn-outline btn-search" id="btn-discover-sources" title="후보 출처를 먼저 탐색하고 원하는 사이트만 선택합니다">
+              출처 찾기 (2단계)
+            </button>
+            <button type="button" class="btn btn-instant" id="btn-instant-collect" title="n8n Webhook(collect-global-voc)을 호출하여 탐색 및 스크래핑을 즉시 일괄 실행합니다">
+              ⚡ n8n 일괄 즉시 수집
             </button>
           </div>
+        </div>
+        <div class="search-form-footer">
+          <span class="webhook-badge-info">⚡ 일괄 수집 대상 Webhook: <code id="label-instant-webhook">http://localhost:5678/webhook-test/collect-global-voc</code> (우측 상단 ⚙️ 설정에서 변경 가능)</span>
         </div>
       </div>
 

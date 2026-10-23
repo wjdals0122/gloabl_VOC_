@@ -41,6 +41,11 @@ const SourceView = {
       searchBtn.addEventListener('click', () => this.handleSearch());
     }
 
+    const instantBtn = document.getElementById('btn-instant-collect');
+    if (instantBtn) {
+      instantBtn.addEventListener('click', () => this.handleInstantCollect());
+    }
+
     const countrySelect = document.getElementById('input-country');
     if (countrySelect) {
       countrySelect.addEventListener('change', (e) => {
@@ -61,6 +66,15 @@ const SourceView = {
         }
       });
     }
+  },
+
+  handleInstantCollect() {
+    const country = this.state.country || 'US';
+    const product = this.state.product ? this.state.product.trim() : 'LG OLED evo G4';
+
+    // 2단계 결과 탭으로 이동 후 즉시 n8n Webhook 일괄 수집 시작
+    App.navigateToTab('tab-results');
+    ResultsView.startInstantCollection(country, product);
   },
 
   async handleSearch() {

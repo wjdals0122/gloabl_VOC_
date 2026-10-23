@@ -2,32 +2,86 @@
  * dashboard/js/app.js
  * 글로벌 VOC 수집 대시보드 메인 오케스트레이터
  * 
- * [요구사항 반영]
- * 1. 2대 주요 메뉴만 관리 (출처 탐색 및 선택 / 수집 및 결과)
- * 2. 브라우저 수집 이력 라우트 및 관련 코드 정리
- * 3. 데모 모드일 때는 헤더에 작은 배지 하나만 노출, 콘텐츠 상단에 간결한 1줄 안내 표시
- * 4. 우측 설정 버튼을 통해 통합 설정 패널(모달) 연결
+ * [기능]
+ * 1. 기본 라이트 모드 및 다크 모드 On/Off 토글 지원 (localStorage 저장)
+ * 2. 상단 헤더 데모 모드 On/Off 직접 토글 버튼 지원
+ * 3. 2대 핵심 메뉴(출처 탐색 / 수집 및 결과) 라우팅
+ * 4. 통합 설정 모달 바인딩
  */
 
 const App = {
   currentTab: 'tab-sources',
+  currentTheme: 'light', // 기본 라이트 모드
 
   init() {
     console.log('[App] 글로벌 VOC 수집기 대시보드 초기화');
 
-    // 1. 네비게이션 및 헤더 컨트롤 바인딩
+    // 1. 테마 초기화 (기본값: 라이트 모드)
+    this.initTheme();
+
+    // 2. 네비게이션 및 헤더 컨트롤 바인딩
     this.bindNavigation();
     this.bindHeaderControls();
 
-    // 2. 뷰 초기화 (출처 탐색 / 수집 및 결과)
+    // 3. 뷰 초기화
     SourceView.init();
     ResultsView.init();
 
-    // 3. 모드 UI 반영
+    // 4. 모드 UI 반영
     this.updateModeUI();
   },
 
+  initTheme() {
+    try {
+      const savedTheme = localStorage.getItem('voc_theme') || 'light';
+      this.setTheme(savedTheme);
+    } catch (e) {
+      this.setTheme('light');
+    }
+  },
+
+  setTheme(theme) {
+    this.currentTheme = theme;
+    document.documentElement.setAttribute('data-theme', theme);
+    try {
+      localStorage.setItem('voc_theme', theme);
+    } catch (e) {}
+
+    const themeLabel = document.getElementById('theme-toggle-label');
+    const themeIcon = document.getElementById('theme-toggle-icon');
+
+    if (theme === 'dark') {
+      if (themeLabel) themeLabel.textContent = '라이트모드';
+      if (themeIcon) themeIcon.textContent = '☀️';
+    } else {
+      if (themeLabel) themeLabel.textContent = '다크모드';
+      if (themeIcon) themeIcon.textContent = '🌙';
+    }
+  },
+
+  toggleTheme() {
+    const nextTheme = this.currentTheme === 'light' ? 'dark' : 'light';
+    this.setTheme(nextTheme);
+  },
+
   bindHeaderControls() {
+    // 1. 데모 모드 직접 On/Off 토글 버튼
+    const btnDemoToggle = document.getElementById('btn-toggle-demo');
+    if (btnDemoToggle) {
+      btnDemoToggle.addEventListener('click', () => {
+        this.toggleDemoMode(!AppConfig.isDemoMode);
+      });
+    }
+
+    // 2. 테마 전환 버튼 (라이트/다크)
+    const btnThemeToggle = document.getElementById('btn-toggle-theme');
+    if (btnThemeToggle) {
+      btnThemeToggle.addEventListener('click', () => {
+        this.toggleTheme();
+      });
+    }
+
+    // 3. 설정 모달 버튼
     const btnSettings = document.getElementById('btn-open-settings');
     if (btnSettings) {
       btnSettings.addEventListener('click', () => {
@@ -50,17 +104,14 @@ const App = {
   navigateToTab(tabId, data = null) {
     this.currentTab = tabId;
 
-    // 네비게이션 버튼 갱신
     document.querySelectorAll('.nav-tab-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.tab === tabId);
     });
 
-    // 탭 섹션 전환
     document.querySelectorAll('.tab-view-section').forEach(section => {
       section.classList.toggle('active', section.id === tabId);
     });
 
-    // 탭별 데이터 전달
     if (tabId === 'tab-results') {
       if (data && data.selectedSources) {
         ResultsView.setTarget(data.country, data.product, data.selectedSources);
@@ -71,26 +122,45 @@ const App = {
   toggleDemoMode(isDemo) {
     AppConfig.isDemoMode = isDemo;
     this.updateModeUI();
+
+    // 모달 내부 스위치도 동기화
+    const modalSwitch = document.getElementById('modal-switch-demo');
+    if (modalSwitch) modalSwitch.checked = isDemo;
+
     SourceView.handleSearch();
     ResultsView.render();
   },
 
   updateModeUI() {
-    const badge = document.getElementById('header-demo-badge');
+    const btnDemo = document.getElementById('btn-toggle-demo');
+    const demoLabel = document.getElementById('demo-toggle-label');
     const banner = document.getElementById('content-demo-banner');
 
     if (AppConfig.isDemoMode) {
-      if (badge) badge.style.display = 'inline-flex';
+      if (btnDemo) {
+        btnDemo.className = 'btn-demo-toggle active';
+      }
+      if (demoLabel) {
+        demoLabel.textContent = '데모 모드 ON';
+      }
       if (banner) {
         banner.style.display = 'flex';
         banner.innerHTML = `
-          <span>데모 모드입니다. 가상 데이터로 출처 탐색 및 수집 흐름을 테스트할 수 있습니다.</span>
+          <span>💡 데모 모드입니다. 가상 데이터로 출처 탐색 및 수집 흐름을 테스트할 수 있습니다. 상단 <strong>[데모 모드 ON]</strong> 버튼을 눌러 언제든 실제 모드로 전환할 수 있습니다.</span>
         `;
       }
     } else {
-      if (badge) badge.style.display = 'none';
+      if (btnDemo) {
+        btnDemo.className = 'btn-demo-toggle inactive';
+      }
+      if (demoLabel) {
+        demoLabel.textContent = '실제 연동 모드';
+      }
       if (banner) {
-        banner.style.display = 'none';
+        banner.style.display = 'flex';
+        banner.innerHTML = `
+          <span>⚡ <strong>실제 모드 동작 중</strong>: 백엔드 Webhook 연동을 수행합니다. 데모 데이터로 복귀하려면 상단 <strong>[실제 연동 모드]</strong>를 클릭하세요.</span>
+        `;
       }
     }
   }

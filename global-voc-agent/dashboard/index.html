@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Global VOC Collector | 글로벌 VOC 수집기</title>
+  <title>Global VOC Collector | 글로벌 고객 피드백 인텔리전스</title>
   <meta name="description" content="글로벌 고객 리뷰(VOC) 출처 탐색, 선별 및 수집 대시보드">
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌐</text></svg>">
@@ -11,14 +11,32 @@
 <body>
 
   <!-- ==========================================================================
-       1. 상단 헤더 (서비스명 - 2대 주요 메뉴 - 설정 버튼)
+       1. 상단 헤더 (브랜드 로고플레이 + 2대 메뉴 + 데모 On/Off 토글 + 다크모드 On/Off)
        ========================================================================== -->
   <header class="site-header" role="banner">
     <div class="header-inner">
-      <!-- 서비스명 -->
-      <div class="brand-section">
-        <h1 class="service-title">Global VOC Collector</h1>
-      </div>
+      <!-- 브랜드 로고 및 아이덴티티 -->
+      <a class="brand-logo-wrap" onclick="App.navigateToTab('tab-sources')" title="메인 화면으로 이동">
+        <div class="brand-icon-box" aria-hidden="true">
+          <svg class="brand-svg" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="16" cy="16" r="13" stroke="currentColor" stroke-width="2" stroke-opacity="0.3"/>
+            <ellipse cx="16" cy="16" rx="6.5" ry="13" stroke="currentColor" stroke-width="1.8" stroke-opacity="0.4"/>
+            <line x1="3" y1="16" x2="29" y2="16" stroke="currentColor" stroke-width="1.8" stroke-opacity="0.4"/>
+            <circle cx="16" cy="16" r="3.5" fill="currentColor"/>
+            <circle cx="23" cy="10" r="2" fill="currentColor" fill-opacity="0.8"/>
+            <circle cx="9" cy="22" r="2" fill="currentColor" fill-opacity="0.8"/>
+          </svg>
+        </div>
+        <div class="brand-text-group">
+          <div class="brand-main-title">
+            <span class="brand-text-prefix">Global</span>
+            <span class="brand-text-highlight">VOC</span>
+            <span class="brand-text-suffix">Collector</span>
+            <span class="brand-version-chip">v1.2</span>
+          </div>
+          <span class="brand-subtext">글로벌 고객 피드백 인텔리전스</span>
+        </div>
+      </a>
 
       <!-- 2개 주요 메뉴 -->
       <nav class="header-center-nav" role="navigation" aria-label="주요 메뉴">
@@ -30,9 +48,21 @@
         </button>
       </nav>
 
-      <!-- 오른쪽 설정 버튼 및 상태 배지 -->
+      <!-- 우측 컨트롤 영역: 데모모드 On/Off 토글 + 라이트/다크 토글 + 설정 -->
       <div class="header-right">
-        <span id="header-demo-badge" class="badge badge-demo header-demo-badge">데모 모드</span>
+        <!-- 인터랙티브 데모 모드 On/Off 토글 버튼 -->
+        <button type="button" class="btn-demo-toggle active" id="btn-toggle-demo" title="클릭하여 데모 모드를 켜거나 끌 수 있습니다.">
+          <span class="demo-icon">🧪</span>
+          <span id="demo-toggle-label">데모 모드 ON</span>
+        </button>
+
+        <!-- 라이트 / 다크 모드 On/Off 스위처 -->
+        <button type="button" class="btn-theme-toggle" id="btn-toggle-theme" title="라이트/다크 모드 전환">
+          <span id="theme-toggle-icon">🌙</span>
+          <span id="theme-toggle-label">다크모드</span>
+        </button>
+
+        <!-- 설정 모달 버튼 -->
         <button type="button" class="btn btn-secondary btn-sm" id="btn-open-settings" title="환경 설정 및 엔드포인트 관리">
           ⚙️ 설정
         </button>
@@ -42,7 +72,7 @@
 
   <!-- 콘텐츠 상단 데모 모드 간결한 한 줄 안내 -->
   <aside id="content-demo-banner" class="content-info-banner" role="status">
-    <span>데모 모드입니다. 가상 데이터로 출처 탐색 및 수집 흐름을 테스트할 수 있습니다.</span>
+    <span>💡 데모 모드입니다. 가상 데이터로 출처 탐색 및 수집 흐름을 테스트할 수 있습니다. 상단 <strong>[데모 모드 ON]</strong> 버튼을 눌러 언제든 실제 모드로 전환할 수 있습니다.</span>
   </aside>
 
   <!-- ==========================================================================
@@ -54,7 +84,7 @@
          화면 1: 출처 탐색 및 선택
          ---------------------------------------------------------------------- -->
     <section class="tab-view-section active" id="tab-sources" aria-labelledby="nav-btn-sources">
-      <!-- 국가·제품 입력 영역 (한 줄 정렬, 높이 일치, 제품명 최대 너비, 키워드 제거) -->
+      <!-- 국가·제품 입력 영역 (Elevated Hero Card + Blue Top Accent) -->
       <div class="search-control-card">
         <div class="search-form-row">
           <div class="form-group-country">
@@ -83,7 +113,7 @@
         </div>
       </div>
 
-      <!-- 출처 목록 테이블 영역 (SourceView 렌더링) -->
+      <!-- 출처 목록 테이블 영역 (SourceView 동적 렌더링) -->
       <div id="view-sources-content">
         <!-- JS SourceView 렌더링 -->
       </div>
@@ -93,7 +123,7 @@
          화면 2: 수집 및 결과
          ---------------------------------------------------------------------- -->
     <section class="tab-view-section" id="tab-results" aria-labelledby="nav-btn-results">
-      <!-- 수집 컨트롤러 및 결과 렌더링 (ResultsView 렌더링) -->
+      <!-- 수집 컨트롤러 및 결과 렌더링 (ResultsView 동적 렌더링) -->
       <div id="view-results-content">
         <!-- JS ResultsView 렌더링 -->
       </div>
@@ -105,7 +135,7 @@
        3. 푸터
        ========================================================================== -->
   <footer class="site-footer" role="contentinfo">
-    <p>Global VOC Collector &bull; 출처 선택형 글로벌 고객 리뷰 수집기</p>
+    <p>Global VOC Collector &bull; 다국가 고객 리뷰(VOC) 출처 선택형 수집 인텔리전스</p>
   </footer>
 
   <!-- ==========================================================================

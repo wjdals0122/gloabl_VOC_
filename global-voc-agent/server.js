@@ -1,7 +1,6 @@
 /**
  * AI Agent/global-voc-agent/server.js
  * 글로벌 VOC 수집 대시보드 로컬 정적 서빙 및 테스트용 Mock API 서버
- * (Node.js 내장 모듈만 사용하여 별도 npm install 없이 즉시 실행 가능)
  */
 
 const http = require('http');
@@ -28,7 +27,6 @@ const server = http.createServer((req, res) => {
   const parsedUrl = url.parse(req.url, true);
   const pathname = parsedUrl.pathname;
 
-  // CORS 헤더 설정
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -55,33 +53,24 @@ const server = http.createServer((req, res) => {
           sources: [
             {
               source_id: `mock_${country.toLowerCase()}_retail_01`,
-              site_name: `${country} Premier Retail`,
+              site_name: `${country} 대표 가전 판매점`,
+              category: '가전 판매점',
               url: `https://example.com/${country.toLowerCase()}/product-reviews`,
-              category: 'E-Commerce',
-              description: '현지 대표 종합 전자제품 쇼핑몰 실구매 고객 리뷰',
-              product_match: '확인',
-              review_status: '확인',
-              review_count: '1,280건'
+              description: '현지 주요 종합 전자제품 쇼핑몰 실구매 고객 리뷰'
             },
             {
               source_id: `mock_${country.toLowerCase()}_forum_02`,
-              site_name: `${country} Tech Community Forum`,
+              site_name: `${country} 테크 커뮤니티`,
+              category: '커뮤니티',
               url: `https://example.com/forum/threads/${country.toLowerCase()}-discussion`,
-              category: 'Community/Forum',
-              description: '테크 매니아 실사용 내구성 및 장단점 토론',
-              product_match: '확인',
-              review_status: '확인',
-              review_count: '430건'
+              description: '테크 매니아 실사용 내구성 및 장단점 토론'
             },
             {
               source_id: `mock_${country.toLowerCase()}_eval_03`,
-              site_name: `${country} Appliance Reviews`,
+              site_name: `${country} 전문 리뷰 사이트`,
+              category: '전문 리뷰 사이트',
               url: `https://example.com/reviews/appliances`,
-              category: 'Review Site',
-              description: null,
-              product_match: null,
-              review_status: null,
-              review_count: null
+              description: null
             }
           ]
         };
@@ -107,12 +96,12 @@ const server = http.createServer((req, res) => {
         const sources = payload.selected_sources || [];
 
         const header = 'country,product,site_name,source_url,proxy_type,extraction_type,status_code,voc_content\n';
-        const rows = sources.map((s, idx) => {
+        const rows = sources.map(s => {
           const content = `[Mock Server Response for ${product}]\nScraped via ScrapingAnt simulation.\nUser reviews mention high satisfaction and reliable performance.`;
           return `${country},"${product.replace(/"/g, '""')}","${(s.site_name || 'Site').replace(/"/g, '""')}","${s.url}",datacenter,markdown,200,"${content.replace(/"/g, '""')}"`;
         });
 
-        const csv = '\uFEFF' + header + rows.join('\n'); // UTF-8 BOM 포함
+        const csv = '\uFEFF' + header + rows.join('\n');
 
         res.writeHead(200, {
           'Content-Type': 'text/csv; charset=utf-8',
@@ -127,14 +116,8 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // --- [정적 파일 서빙] ---
+  // 정적 파일 서빙
   let filePath = path.join(DASHBOARD_DIR, pathname === '/' ? 'index.html' : pathname);
-
-  // 상위 마크다운 명세서 파일 요청 처리
-  if (pathname === '/01-architecture-and-api-spec.md') {
-    filePath = path.join(__dirname, '01-architecture-and-api-spec.md');
-  }
-
   const ext = path.extname(filePath).toLowerCase();
   const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
@@ -155,9 +138,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log('================================================================');
   console.log(`🚀 Global VOC Dashboard Server running at: http://localhost:${PORT}`);
-  console.log(`📁 Serving directory: ${DASHBOARD_DIR}`);
-  console.log(`📘 Spec documentation: http://localhost:${PORT}/01-architecture-and-api-spec.md`);
-  console.log('================================================================');
 });

@@ -1,0 +1,20 @@
+{
+  "name": "global-voc-agent",
+  "version": "1.0.0",
+  "description": "Global VOC Collector Agent & Source-Selective Dashboard based on ScrapingAnt & n8n",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "voc",
+    "scraper",
+    "scrapingant",
+    "n8n",
+    "dashboard",
+    "global-intelligence"
+  ],
+  "author": "Antigravity Agent",
+  "license": "ISC"
+}

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Global VOC Collector & Intelligence Dashboard | 글로벌 VOC 수집·분석 대시보드</title>
+  <meta name="description" content="ScrapingAnt 및 AI 기반 글로벌 고객 VOC(Voice of Customer) 다국가 수집 및 출처 선택형 분석 대시보드">
+  
+  <!-- 스타일시트 -->
+  <link rel="stylesheet" href="css/style.css">
+  
+  <!-- 파비콘 (인라인 SVG) -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌐</text></svg>">
+</head>
+<body>
+
+  <!-- ==========================================================================
+       1. 사이트 헤더 및 글로벌 컨트롤
+       ========================================================================== -->
+  <header class="site-header" role="banner">
+    <div class="header-inner">
+      <!-- 브랜드 로고 및 타이틀 -->
+      <div class="brand-section">
+        <div class="logo-symbol" aria-hidden="true">🌐</div>
+        <div class="brand-titles">
+          <h1>Global VOC Collector</h1>
+          <span class="tagline">출처 선택형 다국가 고객 리뷰 수집기</span>
+        </div>
+      </div>
+
+      <!-- 상단 네비게이션 탭 -->
+      <nav class="header-center-nav" role="navigation" aria-label="메인 탭 네비게이션">
+        <button type="button" class="nav-tab-btn active" id="nav-btn-sources" data-tab="tab-sources">
+          1. 출처 탐색 및 선택
+        </button>
+        <button type="button" class="nav-tab-btn" id="nav-btn-results" data-tab="tab-results">
+          2. 수집 및 결과
+        </button>
+        <button type="button" class="nav-tab-btn" id="nav-btn-history" data-tab="tab-history">
+          3. 브라우저 수집 이력
+        </button>
+      </nav>
+
+      <!-- 우측 모드 스위처 및 유틸 액션 -->
+      <div class="header-controls">
+        <span id="header-mode-badge" class="badge badge-demo">🧪 데모 모드</span>
+
+        <div class="mode-switcher-pill" title="데모 시뮬레이션 모드와 실제 백엔드 연동 모드를 전환합니다.">
+          <label class="switch-label" for="switch-demo-mode">데모 모드</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="switch-demo-mode" checked>
+            <span class="slider round"></span>
+          </label>
+        </div>
+
+        <button type="button" class="btn btn-outline btn-sm" id="btn-open-api-docs" title="팀원 연동을 위한 API 인터페이스 규격서 열람">
+          📘 API 연동 규격서
+        </button>
+
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-open-server-config" title="서버 설정 및 엔드포인트 관리">
+          ⚙️ 서버 설정
+        </button>
+      </div>
+    </div>
+
+    <!-- 모드 안내 알림 배너 -->
+    <div id="header-mode-banner" class="mode-info-banner demo" role="status">
+      <span>🧪 <strong>데모 시뮬레이션 모드 활성화됨</strong>: 백엔드 API 호출 없이 출처 선택 및 수집 결과를 사전 검증할 수 있습니다.</span>
+    </div>
+  </header>
+
+  <!-- ==========================================================================
+       2. 메인 애플리케이션 컨테이너
+       ========================================================================== -->
+  <main class="app-container" id="main-content" role="main">
+
+    <!-- ----------------------------------------------------------------------
+         탭 1: 출처 탐색 및 선택 (Step 1)
+         ---------------------------------------------------------------------- -->
+    <section class="tab-view-section active" id="tab-sources" aria-labelledby="heading-sources">
+      <!-- 검색 필터 카드 -->
+      <div class="search-control-bar glass-panel">
+        <div class="search-inputs-grid">
+          <!-- 국가 선택 -->
+          <div class="form-group">
+            <label class="form-label" for="input-country">대상 국가 (Country)</label>
+            <select id="input-country" class="input-select">
+              <option value="US">🇺🇸 미국 (United States)</option>
+              <option value="JP">🇯🇵 일본 (Japan)</option>
+              <option value="DE">🇩🇪 독일 (Germany)</option>
+              <option value="PL">🇵🇱 폴란드 (Poland)</option>
+              <option value="UK">🇬🇧 영국 (United Kingdom)</option>
+              <option value="FR">🇫🇷 프랑스 (France)</option>
+              <option value="KR">🇰🇷 대한민국 (Korea)</option>
+            </select>
+          </div>
+
+          <!-- 제품명 입력 -->
+          <div class="form-group">
+            <label class="form-label" for="input-product">수집 대상 제품명 (Product Name)</label>
+            <input type="text" id="input-product" class="input-text" placeholder="예: LG CordZero A9X, OLED evo G4" value="LG CordZero A9X">
+            
+            <!-- 빠른 추천 칩 -->
+            <div class="quick-suggestions">
+              <span class="suggest-label">추천 키워드:</span>
+              <button type="button" class="product-suggestion-chip" data-product="LG CordZero A9X">CordZero A9X</button>
+              <button type="button" class="product-suggestion-chip" data-product="LG OLED evo G4">OLED evo G4</button>
+              <button type="button" class="product-suggestion-chip" data-product="LG WashTower">WashTower</button>
+              <button type="button" class="product-suggestion-chip" data-product="LG InstaView Refrigerator">InstaView Refrigerator</button>
+            </div>
+          </div>
+
+          <!-- 탐색 버튼 -->
+          <div class="form-group">
+            <button type="button" class="btn btn-primary" id="btn-discover-sources">
+              후보 출처 탐색 🔍
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 후보 출처 목록 및 경고 영역 (JS 동적 렌더링) -->
+      <div id="view-sources-content">
+        <!-- JS SourceView 렌더링 영역 -->
+      </div>
+    </section>
+
+    <!-- ----------------------------------------------------------------------
+         탭 2: 수집 및 결과 (Step 2)
+         ---------------------------------------------------------------------- -->
+    <section class="tab-view-section" id="tab-results" aria-labelledby="heading-results">
+      <!-- 수집 컨트롤러 및 결과 렌더링 (JS ResultsView 동적 렌더링) -->
+      <div id="view-results-content">
+        <!-- JS ResultsView 렌더링 영역 -->
+      </div>
+    </section>
+
+    <!-- ----------------------------------------------------------------------
+         탭 3: 브라우저 수집 이력 (Step 3)
+         ---------------------------------------------------------------------- -->
+    <section class="tab-view-section" id="tab-history" aria-labelledby="heading-history">
+      <!-- 수집 세션 기록 렌더링 (JS HistoryView 동적 렌더링) -->
+      <div id="view-history-content">
+        <!-- JS HistoryView 렌더링 영역 -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==========================================================================
+       3. 사이트 푸터
+       ========================================================================== -->
+  <footer class="site-footer" role="contentinfo">
+    <p>Global VOC Collector Agent v1.0.0 &bull; 첨부 워크플로우(<code>global_voc_scraper_workflow.json</code>) 연동 아키텍처 규격 준수 &bull; <a href="#" onclick="ApiDocsView.openModal(); return false;">팀원용 API 연동 규격서 열람</a></p>
+  </footer>
+
+  <!-- ==========================================================================
+       4. 스크립트 로드
+       ========================================================================== -->
+  <script src="js/config.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/mock_data.js"></script>
+  <script src="js/csv_exporter.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/views/source_view.js"></script>
+  <script src="js/views/results_view.js"></script>
+  <script src="js/views/history_view.js"></script>
+  <script src="js/views/api_docs_view.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,309 @@
+{
+  "name": "Global VOC Collector Agent (ScrapingAnt + AI)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 글로벌 VOC 수집 에이전트 워크플로우\n1. **Webhook**: 웹사이트에서 `country`(국가코드, 예: US, JP, DE), `product`(제품명), `proxy_type`(`datacenter` / `residential`), `extraction_type`(`general` / `markdown` / `extended` / `extract`), `api_key`(ScrapingAnt API 키)를 전달받습니다.\n2. **AI VOC 사이트 탐색**: 입력받은 국가와 제품에 맞는 현지 리뷰/커뮤니티/이커머스 URL 목록을 생성합니다.\n3. **수집 대상 사이트 CSV 저장**: 탐색된 사이트 리스트를 `target_sites.csv`로 변환 및 저장합니다.\n4. **Python 스크래퍼 (`scrapper_code.py` 기반)**: CSV에서 사이트 목록을 읽어 `proxy_type`, `proxy_country`, `x-api-key`, `extraction_type` 파라미터를 동적으로 적용해 스크래핑합니다.\n5. **최종 VOC CSV 저장**: 추출된 VOC 데이터를 `scraped_voc_results.csv` 파일로 저장하고 Webhook 응답으로 반환합니다.",
+        "height": 260,
+        "width": 1180,
+        "color": 4
+      },
+      "id": "sticky-note-overview",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        180,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "collect-global-voc",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "node-webhook-trigger",
+      "name": "1. Webhook (국가/제품 입력)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        200,
+        400
+      ],
+      "webhookId": "global-voc-webhook-01"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are a Global VOC (Voice of Customer) Research Agent. Given a target country and product name, return a JSON array of the top 5-10 specific local review sites, e-commerce product review URLs, or community forums where real user reviews and VOC can be scraped. Output ONLY valid JSON array format with keys: site_name, url, category.",
+              "role": "system"
+            },
+            {
+              "content": "=Target Country: {{ $json.body ? $json.body.country : $json.country }}\nTarget Product: {{ $json.body ? $json.body.product : $json.product }}\nFind the best URLs to collect customer reviews (VOC) for this product in this country.",
+              "role": "user"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "id": "node-ai-discover-sites",
+      "name": "2. AI (VOC 수집 사이트 탐색)",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        440,
+        400
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "REPLACE_WITH_OPENAI_CREDENTIAL_ID",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawContent = $input.first().json.message?.content || $input.first().json.text || '[]';\nconst cleaned = rawContent.replace(/```json\\n?|```/g, '').trim();\nlet parsed = [];\n\ntry {\n  const data = JSON.parse(cleaned);\n  parsed = Array.isArray(data) ? data : (data.sites || data.urls || [data]);\n} catch (e) {\n  parsed = [{\n    site_name: 'Parse Error Fallback',\n    url: 'https://example.com',\n    reason: rawContent\n  }];\n}\n\nconst webhookData = $('1. Webhook (국가/제품 입력)').first().json;\nconst body = webhookData.body || webhookData;\n\nreturn parsed.map((site, idx) => ({\n  json: {\n    index: idx + 1,\n    country: body.country || 'US',\n    product: body.product || 'Unknown Product',\n    site_name: site.site_name || site.name || `Site ${idx + 1}`,\n    url: site.url,\n    category: site.category || 'Review/Community',\n    proxy_type: body.proxy_type || 'datacenter',\n    extraction_type: body.extraction_type || 'markdown'\n  }\n}));\n"
+      },
+      "id": "node-parse-site-list",
+      "name": "3. 사이트 목록 정규화",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "csv",
+        "options": {
+          "fileName": "=voc_target_sites_{{ $('1. Webhook (국가/제품 입력)').first().json.body?.country || $('1. Webhook (국가/제품 입력)').first().json.country || 'global' }}.csv",
+          "headerRow": true
+        }
+      },
+      "id": "node-sites-to-csv",
+      "name": "4. 수집 사이트 리스트 CSV 생성",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        920,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/tmp/voc_target_sites.csv",
+        "dataPropertyName": "data",
+        "options": {}
+      },
+      "id": "node-save-sites-csv",
+      "name": "5. 사이트 리스트 CSV 로컬 저장",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        1160,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "csv",
+        "binaryPropertyName": "data",
+        "options": {
+          "headerRow": true
+        }
+      },
+      "id": "node-extract-sites-from-csv",
+      "name": "6. CSV에서 수집 대상 URL 로드",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        1160,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "language": "python",
+        "mode": "runOnceForAllItems",
+        "pythonCode": "import http.client\nimport urllib.parse\nimport json\n\n# 1. Webhook 및 이전 노드에서 전달받은 파라미터 추출\nwebhook_data = _('1. Webhook (국가/제품 입력)').first().json\nbody = webhook_data.get('body', webhook_data)\n\napi_key = body.get('api_key', 'YOUR_SCRAPINGANT_API_KEY')\nproxy_type = body.get('proxy_type', 'datacenter')  # datacenter 또는 residential\nextraction_type = body.get('extraction_type', 'markdown')  # general, markdown, extended, extract\nextract_properties = body.get('extract_properties', 'reviews(list: author, rating, date, review_title, review_text)')\n\nresults = []\n\n# 2. CSV에서 읽어온 수집 대상 사이트 순회하며 스크래핑 실행\nfor item in _input.all():\n    row = item.json\n    target_url = row.get('url', 'https://example.com')\n    country = str(row.get('country') or body.get('country', 'US')).upper()\n    product = row.get('product') or body.get('product', '')\n    site_name = row.get('site_name', '')\n\n    # ScrapingAnt API v2 쿼리 파라미터 구성\n    params = {\n        'url': target_url,\n        'x-api-key': api_key,\n        'proxy_type': proxy_type,\n        'proxy_country': country\n    }\n    \n    # AI 추출(/v2/extract) 선택 시 추출할 속성 지정\n    if extraction_type == 'extract':\n        params['extract_properties'] = extract_properties\n\n    query_string = urllib.parse.urlencode(params)\n    endpoint = f\"/v2/{extraction_type}?{query_string}\"\n\n    # 3. scrapper_code.py 기반 http.client 호출\n    conn = http.client.HTTPSConnection(\"api.scrapingant.com\")\n    try:\n        conn.request(\"GET\", endpoint)\n        res = conn.getresponse()\n        raw_text = res.read().decode(\"utf-8\", errors=\"replace\")\n        status_code = res.status\n    except Exception as e:\n        raw_text = json.dumps({\"error\": str(e)})\n        status_code = 500\n    finally:\n        conn.close()\n\n    # 4. Extraction Type에 따른 응답 파싱\n    extracted_voc = raw_text\n    if extraction_type in ('markdown', 'extended', 'extract'):\n        try:\n            parsed_json = json.loads(raw_text)\n            if extraction_type == 'markdown':\n                extracted_voc = parsed_json.get('markdown', raw_text)\n            elif extraction_type == 'extended':\n                extracted_voc = parsed_json.get('text') or parsed_json.get('html', raw_text)\n            else:\n                extracted_voc = json.dumps(parsed_json, ensure_ascii=False)\n        except Exception:\n            extracted_voc = raw_text\n\n    results.append({\n        \"json\": {\n            \"country\": country,\n            \"product\": product,\n            \"site_name\": site_name,\n            \"source_url\": target_url,\n            \"proxy_type\": proxy_type,\n            \"extraction_type\": extraction_type,\n            \"status_code\": status_code,\n            \"voc_content\": extracted_voc\n        }\n    })\n\nreturn results\n"
+      },
+      "id": "node-python-scraper",
+      "name": "7. Python 스크래퍼 실행 (scrapper_code 적용)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1420,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "csv",
+        "options": {
+          "fileName": "=scraped_voc_{{ $('1. Webhook (국가/제품 입력)').first().json.body?.country || 'global' }}_{{ $('1. Webhook (국가/제품 입력)').first().json.body?.product || 'product' }}.csv",
+          "headerRow": true
+        }
+      },
+      "id": "node-voc-to-csv",
+      "name": "8. 스크래핑 결과 CSV 변환",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1680,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/tmp/scraped_voc_results.csv",
+        "dataPropertyName": "data",
+        "options": {}
+      },
+      "id": "node-save-voc-csv",
+      "name": "9. 최종 VOC CSV 파일 저장",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "binary",
+        "responseDataSource": "set",
+        "inputFieldName": "data",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Disposition",
+                "value": "attachment; filename=\"scraped_voc_results.csv\""
+              }
+            ]
+          }
+        }
+      },
+      "id": "node-webhook-response",
+      "name": "10. Webhook CSV 응답 반환",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1920,
+        560
+      ]
+    }
+  ],
+  "connections": {
+    "1. Webhook (국가/제품 입력)": {
+      "main": [
+        [
+          {
+            "node": "2. AI (VOC 수집 사이트 탐색)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. AI (VOC 수집 사이트 탐색)": {
+      "main": [
+        [
+          {
+            "node": "3. 사이트 목록 정규화",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. 사이트 목록 정규화": {
+      "main": [
+        [
+          {
+            "node": "4. 수집 사이트 리스트 CSV 생성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4. 수집 사이트 리스트 CSV 생성": {
+      "main": [
+        [
+          {
+            "node": "5. 사이트 리스트 CSV 로컬 저장",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "6. CSV에서 수집 대상 URL 로드",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6. CSV에서 수집 대상 URL 로드": {
+      "main": [
+        [
+          {
+            "node": "7. Python 스크래퍼 실행 (scrapper_code 적용)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "7. Python 스크래퍼 실행 (scrapper_code 적용)": {
+      "main": [
+        [
+          {
+            "node": "8. 스크래핑 결과 CSV 변환",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8. 스크래핑 결과 CSV 변환": {
+      "main": [
+        [
+          {
+            "node": "9. 최종 VOC CSV 파일 저장",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "10. Webhook CSV 응답 반환",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

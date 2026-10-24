@@ -340,7 +340,7 @@ const SourceView = {
         <div class="fixed-bar-inner">
           <div class="fixed-bar-left">
             <span class="fixed-counter"><strong>${selectedCount}개</strong> 출처 선택됨</span>
-            <span class="fixed-sep" aria-hidden="true">|</span>
+            <span class="fixed-sep" aria-hidden="true">·</span>
             ${selectedCount > 0 
               ? `<button type="button" class="btn-text-action" onclick="SourceView.toggleSelectAll(false)">선택 해제</button>`
               : `<button type="button" class="btn-text-action" onclick="SourceView.toggleSelectAll(true)">전체 선택</button>`
@@ -348,7 +348,7 @@ const SourceView = {
           </div>
           <div class="fixed-bar-right">
             <button type="button" class="btn btn-primary btn-fixed-collect" id="btn-proceed-collection" ${selectedCount === 0 ? 'disabled' : ''}>
-              선택한 ${selectedCount}개 출처 수집 →
+              선택한 ${selectedCount}개 출처 수집 &gt;
             </button>
           </div>
         </div>

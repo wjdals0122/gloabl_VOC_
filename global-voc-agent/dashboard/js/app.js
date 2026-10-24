@@ -33,6 +33,16 @@ const App = {
 
     // 5. 메인 안내 문구 완성형 타이핑 효과 (최초 진입 시 1회 실행)
     this.initTypingHero();
+
+    // 6. 데모 수집 자동 실행 파라미터 지원 (?demo_collect=1)
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('demo_collect') === '1') {
+        setTimeout(() => {
+          SourceView.proceedToCollection();
+        }, 300);
+      }
+    } catch (e) {}
   },
 
   updateWebhookIndicator() {
@@ -181,7 +191,7 @@ const App = {
 
     if (tabId === 'tab-results') {
       if (data && data.selectedSources) {
-        ResultsView.setTarget(data.country, data.product, data.selectedSources);
+        ResultsView.setTarget(data.country, data.product, data.selectedSources, data.autoStart !== false);
       }
     }
   },

@@ -146,7 +146,8 @@ const SourceView = {
     App.navigateToTab('tab-results', {
       country: this.state.country,
       product: this.state.product,
-      selectedSources: selected
+      selectedSources: selected,
+      autoStart: true
     });
   },
 
@@ -171,37 +172,36 @@ const SourceView = {
     if (!category) return '기타 웹사이트';
     const cat = String(category).trim();
 
-    // 4대 표준 카테고리 매핑 (방안 B: 깔끔한 한국어 표준화)
     switch (cat) {
-      case 'E-commerce':
-      case 'Ecommerce':
-      case 'e-commerce':
       case '가전 판매점':
-      case '온라인 쇼핑몰':
-      case '이커머스':
-        return '이커머스';
-
-      case 'Community/Forum':
-      case 'Community':
-      case 'Forum':
+        return '가전 판매점';
       case '커뮤니티':
       case '커뮤니티/포럼':
         return '커뮤니티';
-
-      case 'Tech Review':
-      case 'Tech review':
       case '전문 리뷰 사이트':
       case '전문 리뷰':
-      case '테크 리뷰':
-        return '전문 리뷰';
-
-      case 'Price Comparison':
-      case 'Price comparison':
-      case '가격비교':
+        return '전문 리뷰 사이트';
       case '가격 비교':
+      case '가격비교':
       case '가격 비교 사이트':
         return '가격 비교';
-
+      case 'E-commerce':
+      case 'Ecommerce':
+      case 'e-commerce':
+      case '온라인 쇼핑몰':
+      case '이커머스':
+        return '가전 판매점';
+      case 'Community/Forum':
+      case 'Community':
+      case 'Forum':
+        return '커뮤니티';
+      case 'Tech Review':
+      case 'Tech review':
+      case '테크 리뷰':
+        return '전문 리뷰 사이트';
+      case 'Price Comparison':
+      case 'Price comparison':
+        return '가격 비교';
       default:
         return cat;
     }
@@ -260,16 +260,15 @@ const SourceView = {
         const domain = this.extractDomain(s.url);
         const categoryLabel = this.formatCategory(s.category);
         
-        // 사이트 설명 (가운뎃점 · 자동 제거 정제 및 미등록 처리)
-        const cleanDesc = s.description ? s.description.replace(/\s*·\s*/g, ' ').trim() : null;
-        const descText = cleanDesc 
-          ? `<span class="site-desc-text">${CsvUtils.escapeHtml(cleanDesc)}</span>`
+        // 사이트 설명
+        const descText = s.description 
+          ? `<span class="site-desc-text">${CsvUtils.escapeHtml(s.description)}</span>`
           : `<span class="site-desc-empty">사이트 설명 미확인</span>`;
 
         return `
           <tr class="${isChecked ? 'row-selected' : ''}">
             <td class="col-checkbox">
-              <input type="checkbox" id="chk-${id}" ${isChecked ? 'checked' : ''} onchange="SourceView.toggleSource('${id}', this.checked)" aria-label="${CsvUtils.escapeHtml(s.site_name)} 선택">
+              <input type="checkbox" id="chk-${id}" class="voc-checkbox" ${isChecked ? 'checked' : ''} onchange="SourceView.toggleSource('${id}', this.checked)" aria-label="${CsvUtils.escapeHtml(s.site_name)} 선택">
             </td>
             <td class="col-site-info">
               <div class="site-info-cell">
@@ -316,7 +315,7 @@ const SourceView = {
             <thead>
               <tr>
                 <th class="col-checkbox">
-                  <input type="checkbox" id="chk-master" ${isAllSelected ? 'checked' : ''} ${totalCount === 0 ? 'disabled' : ''} onchange="SourceView.toggleSelectAll(this.checked)" aria-label="전체 출처 선택">
+                  <input type="checkbox" id="chk-master" class="voc-checkbox" ${isAllSelected ? 'checked' : ''} ${totalCount === 0 ? 'disabled' : ''} onchange="SourceView.toggleSelectAll(this.checked)" aria-label="전체 출처 선택">
                 </th>
                 <th class="col-site-info">사이트명 및 유형</th>
                 <th class="col-site-desc">사이트 설명</th>

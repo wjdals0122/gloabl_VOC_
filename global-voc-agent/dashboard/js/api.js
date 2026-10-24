@@ -55,7 +55,7 @@ const VocApiClient = {
     }
 
     if (AppConfig.isDemoMode) {
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise(r => setTimeout(r, 2200));
       const csvText = MockData.generateMockResultCsv(country, product, selectedSources);
       const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
       const blob = new Blob([bom, csvText], { type: 'text/csv;charset=utf-8;' });
@@ -103,72 +103,6 @@ const VocApiClient = {
       };
     } catch (error) {
       console.error('[API Client] collectSelectedSources 오류:', error);
-      throw error;
-    }
-  },
-
-  async collectInstantWebhook(country, product, customWebhookUrl = null) {
-    const webhookUrl = customWebhookUrl || AppConfig.endpoints.instantWebhook || 'http://localhost:5678/webhook-test/collect-global-voc';
-
-    try {
-      const response = await fetch('/api/proxy-collect-voc', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          country,
-          product,
-          webhookUrl,
-          proxy_type: AppConfig.serverSideSettings.proxyType,
-          extraction_type: AppConfig.serverSideSettings.extractionType
-        })
-      });
-
-      const contentType = response.headers.get('content-type') || '';
-
-      if (!response.ok) {
-        let errMessage = `HTTP ${response.status}`;
-        try {
-          const errData = await response.json();
-          if (errData.message) {
-            errMessage = errData.message;
-          } else if (errData.hint) {
-            errMessage = `${errData.message || ''} (${errData.hint})`;
-          }
-        } catch (_) {
-          const txt = await response.text();
-          if (txt) errMessage = txt;
-        }
-
-        if (response.status === 404 && errMessage.includes('not registered')) {
-          throw new Error('n8n 수신 대기 필요: n8n 캔버스에서 [Execute workflow] 또는 Webhook 노드의 [Listen for test event]를 클릭한 후 다시 시도해주세요.');
-        }
-
-        throw new Error(errMessage);
-      }
-
-      let csvText = '';
-      if (contentType.includes('json')) {
-        const jsonData = await response.json();
-        if (Array.isArray(jsonData)) {
-          csvText = CsvUtils.generateSourcesCsv(country, product, jsonData);
-        } else if (jsonData.csv) {
-          csvText = jsonData.csv;
-        } else {
-          csvText = JSON.stringify(jsonData, null, 2);
-        }
-      } else {
-        const blob = await response.blob();
-        csvText = await blob.text();
-      }
-
-      return {
-        success: true,
-        isDemo: false,
-        csvText: csvText,
-        message: 'n8n 일괄 수집 완료'
-      };
-    } catch (error) {
-      console.error('[API Client] collectInstantWebhook 오류:', error);
       throw error;
     }
   }

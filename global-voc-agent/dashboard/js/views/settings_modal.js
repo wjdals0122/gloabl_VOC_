@@ -78,12 +78,6 @@ const SettingsModal = {
               <span class="form-help">선택된 출처 URL들을 수집하여 최종 CSV를 반환하는 백엔드 URL</span>
             </div>
 
-            <div class="form-group mb-3">
-              <label class="form-label" for="cfg-instant-url" style="color: #a78bfa;">⚡ n8n 일괄 즉시 수집 Webhook URL (instantWebhook)</label>
-              <input type="text" id="cfg-instant-url" class="input-text w-100" value="${CsvUtils.escapeHtml(AppConfig.endpoints.instantWebhook)}">
-              <span class="form-help">테스트 시: <code>/webhook-test/collect-global-voc</code> | 상시 운영 시: <code>/webhook/collect-global-voc</code></span>
-            </div>
-
             <button type="button" class="btn btn-secondary btn-sm" onclick="SettingsModal.saveEndpoints()">
               엔드포인트 설정 저장
             </button>
@@ -135,9 +129,7 @@ const SettingsModal = {
   saveEndpoints() {
     const discover = document.getElementById('cfg-discover-url').value.trim();
     const collect = document.getElementById('cfg-collect-url').value.trim();
-    const instant = document.getElementById('cfg-instant-url').value.trim();
-    AppConfig.saveCustomEndpoints(discover, collect, instant);
-    if (window.App && App.updateWebhookIndicator) App.updateWebhookIndicator();
+    AppConfig.saveCustomEndpoints(discover, collect);
     alert('API 엔드포인트 주소가 저장되었습니다.');
   },
 

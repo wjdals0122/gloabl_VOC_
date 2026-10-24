@@ -759,25 +759,26 @@ body {
 }
 
 .voc-data-table th {
-  background-color: var(--bg-surface-elevated);
-  color: var(--text-muted);
+  background-color: var(--bg-surface);
+  color: #4b5563;
   font-weight: 700;
   font-size: 13px;
   text-align: left;
-  padding: 10px 16px; /* 행 높이 축소 */
-  border-bottom: 1px solid var(--border-medium);
-  letter-spacing: 0.008em; /* 표 헤더: 0~0.01em */
+  padding: 11px 16px;
+  border-top: 1px solid #bfdbfe; /* Photo 1 상단 연파랑 경계선 */
+  border-bottom: 1px solid #bfdbfe; /* Photo 1 하단 연파랑 경계선 */
+  letter-spacing: 0.008em;
 }
 
 .voc-data-table td {
-  padding: 9px 16px; /* 행 높이 축소 (기존 16px -> 9px) */
+  padding: 10px 16px;
   border-bottom: 1px solid var(--border-subtle);
   vertical-align: middle;
   line-height: 1.35;
 }
 
 .voc-data-table tbody tr {
-  transition: background-color 0.18s ease; /* 절제된 모션 150~200ms */
+  transition: background-color 0.18s ease;
   background-color: var(--bg-surface);
 }
 
@@ -785,9 +786,10 @@ body {
   background-color: var(--bg-surface-hover);
 }
 
-/* 선택된 행에 피그마와 일치하는 은은한 소프트 블루 배경 적용 */
+/* 선택된 행에 피그마/Photo 1 일치 은은한 소프트 블루(#EFF6FF) 배경 적용 */
 .voc-data-table tbody tr.row-selected {
   background-color: #eff6ff;
+  border-bottom: 1px solid #dbeafe;
 }
 
 .col-checkbox {
@@ -795,11 +797,49 @@ body {
   text-align: center;
 }
 
-.col-checkbox input[type="checkbox"] {
+/* Photo 1 피그마 일치 솔리드 버건디 체크박스 (Solid Burgundy Square + White Checkmark) */
+.voc-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
   width: 18px;
   height: 18px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 3px;
+  background-color: #ffffff;
   cursor: pointer;
-  accent-color: #ab1736; /* 피그마: 버건디 레드 체크박스 */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  position: relative;
+  outline: none;
+  transition: all 0.15s ease;
+  margin: 0;
+}
+
+.voc-checkbox:hover {
+  border-color: #ab1736;
+}
+
+.voc-checkbox:checked {
+  background-color: #ab1736;
+  border-color: #ab1736;
+}
+
+.voc-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 1.5px;
+  width: 5px;
+  height: 9.5px;
+  border: solid #ffffff;
+  border-width: 0 2.2px 2.2px 0;
+  transform: rotate(45deg);
+}
+
+.voc-checkbox:focus-visible {
+  box-shadow: 0 0 0 2px rgba(171, 23, 54, 0.25);
 }
 
 /* 사이트명 및 유형 (너비 확대: 380~420px, 1줄 늘림 유지) */
@@ -1082,46 +1122,237 @@ body {
   gap: 10px;
 }
 
-/* 기술 정보 접이식 섹션 */
-.tech-info-collapsible {
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border-subtle);
-}
-
-.btn-tech-toggle {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  font-size: 13px;
-  cursor: pointer;
-  padding: 2px 0;
-  font-family: inherit;
-}
-
-.btn-tech-toggle:hover {
-  color: var(--text-main);
-}
-
-.tech-info-content {
-  margin-top: 10px;
-  background-color: var(--bg-surface-elevated);
+/* ==========================================================================
+   수집 진행률 프로그레스 바 카드 (Visual Horizontal Progress Bar)
+   ========================================================================== */
+.collection-progress-card {
+  background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  padding: 14px 18px;
-  font-size: 13px;
-  color: var(--text-muted);
+  border-radius: 14px;
+  padding: 32px 36px;
+  box-shadow: var(--shadow-card);
+  margin-top: 8px;
 }
 
-.tech-info-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+.progress-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.progress-title-area {
+  flex: 1;
+  min-width: 280px;
+}
+
+.progress-title-row {
+  display: flex;
+  align-items: center;
   gap: 10px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
 }
 
-.tech-info-grid code {
-  color: var(--color-primary);
-  font-family: 'JetBrains Mono', monospace;
+.badge-processing-pulse {
+  background-color: #fdf2f4;
+  color: #ab1736;
+  border: 1px solid #fbcfe8;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.badge-processing-pulse::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  background-color: #ab1736;
+  border-radius: 50%;
+  animation: pulse-dot 1.2s infinite;
+}
+
+@keyframes pulse-dot {
+  0% { transform: scale(0.9); opacity: 0.6; }
+  50% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.6; }
+}
+
+.progress-main-heading {
+  font-family: 'SUIT Variable', 'SUIT', sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  color: #111827;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.progress-sub-text {
+  font-size: 13.5px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.progress-timer-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 10px 16px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.timer-icon {
+  font-size: 18px;
+}
+
+.timer-text-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.timer-label {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.timer-value {
+  font-size: 13.5px;
+  color: #1e293b;
+  font-weight: 700;
+}
+
+.progress-bar-shell {
+  width: 100%;
+  margin: 20px 0 14px 0;
+}
+
+.progress-bar-track {
+  width: 100%;
+  height: 12px;
+  background-color: #f1f5f9;
+  border-radius: 9999px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #8c1027 0%, #ab1736 50%, #c00037 100%);
+  border-radius: 9999px;
+  transition: width 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-bar-shimmer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.28) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: bar-shimmer 1.6s infinite;
+}
+
+@keyframes bar-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.progress-status-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 22px;
+}
+
+.progress-current-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  color: #374151;
+  font-weight: 600;
+}
+
+.step-pulse-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #ab1736;
+  border-radius: 50%;
+  animation: pulse-dot 1.2s infinite;
+}
+
+.progress-percentage-display strong {
+  font-size: 20px;
+  font-weight: 800;
+  color: #ab1736;
+  letter-spacing: -0.02em;
+}
+
+.progress-source-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 18px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border: 1px solid #e2e8f0;
+  background-color: #ffffff;
+  color: #64748b;
+  transition: all 0.2s ease;
+}
+
+.source-chip.pending {
+  background-color: #f8fafc;
+  border-color: #e2e8f0;
+  color: #94a3b8;
+}
+
+.source-chip.active {
+  background-color: #fdf2f4;
+  border-color: #ab1736;
+  color: #ab1736;
+  box-shadow: 0 1px 3px rgba(171, 23, 54, 0.12);
+}
+
+.source-chip.completed {
+  background-color: #ecfdf5;
+  border-color: #10b981;
+  color: #059669;
+}
+
+.chip-icon {
+  font-size: 12px;
 }
 
 /* 결과 헤더 및 사이트별 수집 내용 부제목 (검은색 폰트) */

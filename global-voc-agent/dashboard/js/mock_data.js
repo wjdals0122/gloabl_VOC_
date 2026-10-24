@@ -11,37 +11,37 @@ const MockData = {
       {
         source_id: 'src_us_bestbuy_01',
         site_name: 'Best Buy US',
-        category: 'E-commerce',
+        category: '가전 판매점',
         url: 'https://www.bestbuy.com/site/reviews/sample-product',
-        description: '전자제품 전문몰 실구매 고객 리뷰 및 평점'
+        description: '전자제품 판매 사이트 · 구매 후기와 평점'
       },
       {
         source_id: 'src_us_reddit_02',
         site_name: 'Reddit r/OLED',
-        category: 'Community/Forum',
+        category: '커뮤니티',
         url: 'https://www.reddit.com/r/OLED/comments/voc_discussion',
-        description: 'OLED 사용자 커뮤니티 실사용 경험 및 토론'
+        description: 'OLED 사용자 커뮤니티 · 사용 경험과 문제 해결 토론'
       },
       {
         source_id: 'src_us_rtings_03',
         site_name: 'RTINGS.com User Feedback',
-        category: 'Tech Review',
+        category: '전문 리뷰 사이트',
         url: 'https://www.rtings.com/tv/reviews/user-comments',
-        description: '디스플레이 전문 측정 분석 및 사용자 평가'
+        description: '디스플레이 전문 리뷰 사이트 · 제품 평점 및 피드백'
       },
       {
         source_id: 'src_us_avsforum_04',
         site_name: 'AVS Forum',
-        category: 'Community/Forum',
+        category: '커뮤니티',
         url: 'https://www.avsforum.com/threads/official-owners-thread',
-        description: null // 설명 미등록 테스트용 -> '사이트 설명 미확인'으로 표시됨
+        description: null // 설명 미등록 -> '사이트 설명 미확인'으로 표시됨
       },
       {
         source_id: 'src_us_homedepot_05',
         site_name: 'Home Depot Customer Reviews',
-        category: 'E-commerce',
+        category: '가전 판매점',
         url: 'https://www.homedepot.com/p/reviews/appliance-model',
-        description: '대형 하드웨어 가전몰 설치 및 구매자 평가'
+        description: '대형 하드웨어 가전몰 · 설치 및 고객 평가'
       }
     ],
     DE: [

@@ -157,6 +157,56 @@ const SourceView = {
     });
   },
 
+  extractDomain(url) {
+    if (!url) return '';
+    try {
+      const parsed = new URL(url);
+      return parsed.hostname.replace(/^www\./, '');
+    } catch (e) {
+      return url.replace(/^https?:\/\//, '').split('/')[0].replace(/^www\./, '');
+    }
+  },
+
+  formatCategory(category) {
+    if (!category) return '기타 웹사이트';
+    const cat = String(category).trim();
+
+    // 4대 표준 카테고리 매핑 (방안 B: 깔끔한 한국어 표준화)
+    switch (cat) {
+      case 'E-commerce':
+      case 'Ecommerce':
+      case 'e-commerce':
+      case '가전 판매점':
+      case '온라인 쇼핑몰':
+      case '이커머스':
+        return '이커머스';
+
+      case 'Community/Forum':
+      case 'Community':
+      case 'Forum':
+      case '커뮤니티':
+      case '커뮤니티/포럼':
+        return '커뮤니티';
+
+      case 'Tech Review':
+      case 'Tech review':
+      case '전문 리뷰 사이트':
+      case '전문 리뷰':
+      case '테크 리뷰':
+        return '전문 리뷰';
+
+      case 'Price Comparison':
+      case 'Price comparison':
+      case '가격비교':
+      case '가격 비교':
+      case '가격 비교 사이트':
+        return '가격 비교';
+
+      default:
+        return cat;
+    }
+  },
+
   render() {
     const container = document.getElementById(this.containerId);
     if (!container) return;
@@ -206,13 +256,15 @@ const SourceView = {
         const id = s.source_id || `src_${idx}`;
         const isChecked = this.state.selectedSourceIds.has(id);
         
-        // 사이트 유형 (한국어 보조 텍스트)
-        const categoryLabel = s.category || '기타 웹사이트';
+        // 도메인 추출 및 4대 표준 유형 라벨
+        const domain = this.extractDomain(s.url);
+        const categoryLabel = this.formatCategory(s.category);
         
-        // 사이트 설명 (설명 없으면 '설명 미등록')
-        const descText = s.description 
-          ? `<span class="site-desc-text">${CsvUtils.escapeHtml(s.description)}</span>`
-          : `<span class="site-desc-empty">설명 미등록</span>`;
+        // 사이트 설명 (가운뎃점 · 자동 제거 정제 및 미등록 처리)
+        const cleanDesc = s.description ? s.description.replace(/\s*·\s*/g, ' ').trim() : null;
+        const descText = cleanDesc 
+          ? `<span class="site-desc-text">${CsvUtils.escapeHtml(cleanDesc)}</span>`
+          : `<span class="site-desc-empty">사이트 설명 미확인</span>`;
 
         return `
           <tr class="${isChecked ? 'row-selected' : ''}">
@@ -220,9 +272,12 @@ const SourceView = {
               <input type="checkbox" id="chk-${id}" ${isChecked ? 'checked' : ''} onchange="SourceView.toggleSource('${id}', this.checked)" aria-label="${CsvUtils.escapeHtml(s.site_name)} 선택">
             </td>
             <td class="col-site-info">
-              <div class="site-name-wrap">
+              <div class="site-info-cell">
                 <span class="site-name">${CsvUtils.escapeHtml(s.site_name || '사이트')}</span>
-                <span class="site-category">${CsvUtils.escapeHtml(categoryLabel)}</span>
+                <div class="site-meta-row">
+                  ${domain ? `<span class="site-domain">${CsvUtils.escapeHtml(domain)}</span>` : ''}
+                  <span class="site-category-badge">${CsvUtils.escapeHtml(categoryLabel)}</span>
+                </div>
               </div>
             </td>
             <td class="col-site-desc">
@@ -255,7 +310,7 @@ const SourceView = {
           </div>
         </div>
 
-        <!-- 4대 핵심 정보 테이블: 선택 / 사이트명 및 유형 / 사이트 설명 / 원문 링크 -->
+        <!-- 4대 핵심 정보 테이블: 체크박스(48px) / 사이트명·유형(280~320px) / 사이트 설명 / 원문(110~120px) -->
         <div class="table-responsive">
           <table class="voc-data-table">
             <thead>
@@ -265,7 +320,7 @@ const SourceView = {
                 </th>
                 <th class="col-site-info">사이트명 및 유형</th>
                 <th class="col-site-desc">사이트 설명</th>
-                <th class="col-site-link">원문</th>
+                <th class="col-site-link">원문 링크</th>
               </tr>
             </thead>
             <tbody>
@@ -274,19 +329,31 @@ const SourceView = {
           </table>
         </div>
 
-        <!-- 테이블 하단 바: 하단 우측 '총 N개 선택됨' 및 '선택한 출처로 다음 단계' 버튼 -->
-        <div class="table-bottom-bar">
-          <div class="bottom-bar-left">
-            <span class="bottom-note">※ 선택된 사이트에 대해서만 VOC 원문 텍스트 수집이 진행됩니다.</span>
+        <div class="table-footer-note">
+          <span>※ 선택된 사이트에 대해서만 VOC 원문 텍스트 수집이 진행됩니다.</span>
+        </div>
+      </div>
+
+      <!-- 하단 고정 수집 실행 바 (Fixed Bottom Action Bar) -->
+      ${totalCount > 0 ? `
+      <aside class="fixed-collection-bar" role="region" aria-label="출처 수집 실행 바">
+        <div class="fixed-bar-inner">
+          <div class="fixed-bar-left">
+            <span class="fixed-counter"><strong>${selectedCount}개</strong> 출처 선택됨</span>
+            <span class="fixed-sep" aria-hidden="true">|</span>
+            ${selectedCount > 0 
+              ? `<button type="button" class="btn-text-action" onclick="SourceView.toggleSelectAll(false)">선택 해제</button>`
+              : `<button type="button" class="btn-text-action" onclick="SourceView.toggleSelectAll(true)">전체 선택</button>`
+            }
           </div>
-          <div class="bottom-bar-right">
-            <span class="bottom-counter">총 <strong>${selectedCount}개</strong> 선택됨</span>
-            <button type="button" class="btn btn-primary" id="btn-proceed-collection" ${selectedCount === 0 ? 'disabled' : ''}>
-              선택한 출처로 다음 단계
+          <div class="fixed-bar-right">
+            <button type="button" class="btn btn-primary btn-fixed-collect" id="btn-proceed-collection" ${selectedCount === 0 ? 'disabled' : ''}>
+              선택한 ${selectedCount}개 출처 수집 →
             </button>
           </div>
         </div>
-      </div>
+      </aside>
+      ` : ''}
     `;
 
     // 이벤트 바인딩

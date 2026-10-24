@@ -30,13 +30,61 @@ const App = {
     // 4. 모드 UI 반영 및 Webhook 주소 라벨 갱신
     this.updateModeUI();
     this.updateWebhookIndicator();
+
+    // 5. 메인 안내 문구 완성형 타이핑 효과 (최초 진입 시 1회 실행)
+    this.initTypingHero();
   },
 
   updateWebhookIndicator() {
     const el = document.getElementById('label-instant-webhook');
-    if (el && AppConfig.endpoints && AppConfig.endpoints.instantWebhook) {
+    if (el && typeof AppConfig !== 'undefined' && AppConfig.endpoints && AppConfig.endpoints.instantWebhook) {
       el.textContent = AppConfig.endpoints.instantWebhook;
     }
+  },
+
+  initTypingHero() {
+    if (this._hasRunTyping) return;
+    this._hasRunTyping = true;
+
+    const displayEl = document.querySelector('.typing-text-display');
+    const cursorEl = document.querySelector('.typing-cursor');
+    if (!displayEl) return;
+
+    const fullText = '세계 곳곳의 고객 목소리를 찾아보세요.';
+
+    // prefers-reduced-motion 설정 확인: 활성화 시 애니메이션 없이 즉시 표시
+    const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) {
+      displayEl.textContent = fullText;
+      if (cursorEl) cursorEl.style.display = 'none';
+      return;
+    }
+
+    let currentIndex = 0;
+    const totalChars = fullText.length;
+    const charInterval = 75; // 75ms * 20 = 1500ms (1.5~2초 범위 충족)
+
+    const typeNext = () => {
+      if (currentIndex <= totalChars) {
+        // 완성된 글자 단위로 출력 (한글 자모 분리 없음)
+        displayEl.textContent = fullText.slice(0, currentIndex);
+        currentIndex++;
+        setTimeout(typeNext, charInterval);
+      } else {
+        // 입력 완료 후 커서는 1.2초간 깜빡인 후 부드럽게 사라짐
+        setTimeout(() => {
+          if (cursorEl) {
+            cursorEl.classList.add('fade-out');
+            setTimeout(() => {
+              cursorEl.style.display = 'none';
+            }, 400);
+          }
+        }, 1200);
+      }
+    };
+
+    // 첫 진입 후 100ms 지연 후 시작
+    setTimeout(typeNext, 100);
   },
 
   initTheme() {
@@ -146,28 +194,30 @@ const App = {
 
     if (AppConfig.isDemoMode) {
       if (btnDemo) {
-        btnDemo.className = 'btn-demo-toggle active';
+        btnDemo.className = 'btn-demo-badge active';
+        btnDemo.title = '데모 시뮬레이션 모드 동작 중 (클릭 시 실제 연동 모드로 전환)';
       }
       if (demoLabel) {
-        demoLabel.textContent = '데모 모드 ON';
+        demoLabel.textContent = '데모 모드';
       }
       if (banner) {
         banner.style.display = 'flex';
         banner.innerHTML = `
-          <span>💡 데모 모드입니다. 가상 데이터로 출처 탐색 및 수집 흐름을 테스트할 수 있습니다. 상단 <strong>[데모 모드 ON]</strong> 버튼을 눌러 언제든 실제 모드로 전환할 수 있습니다.</span>
+          <span>💡 <strong>데모 데이터로 체험 중입니다.</strong></span>
         `;
       }
     } else {
       if (btnDemo) {
-        btnDemo.className = 'btn-demo-toggle inactive';
+        btnDemo.className = 'btn-demo-badge inactive';
+        btnDemo.title = '실제 Webhook 연동 모드 (클릭 시 데모 모드로 전환)';
       }
       if (demoLabel) {
-        demoLabel.textContent = '실제 연동 모드';
+        demoLabel.textContent = '실제 모드';
       }
       if (banner) {
         banner.style.display = 'flex';
         banner.innerHTML = `
-          <span>⚡ <strong>실제 모드 동작 중</strong>: 백엔드 Webhook 연동을 수행합니다. 데모 데이터로 복귀하려면 상단 <strong>[실제 연동 모드]</strong>를 클릭하세요.</span>
+          <span>⚡ <strong>실제 연동 모드로 동작 중입니다.</strong></span>
         `;
       }
     }

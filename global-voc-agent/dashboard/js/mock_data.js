@@ -11,58 +11,58 @@ const MockData = {
       {
         source_id: 'src_us_bestbuy_01',
         site_name: 'Best Buy US',
-        category: '가전 판매점',
+        category: 'E-commerce',
         url: 'https://www.bestbuy.com/site/reviews/sample-product',
-        description: '북미 대표 전자제품 리테일 실사용자 리뷰 및 평점'
+        description: '전자제품 전문몰 실구매 고객 리뷰 및 평점'
       },
       {
         source_id: 'src_us_reddit_02',
         site_name: 'Reddit r/OLED',
-        category: '커뮤니티',
+        category: 'Community/Forum',
         url: 'https://www.reddit.com/r/OLED/comments/voc_discussion',
-        description: '실제 테크 유저 및 게이머 화질, 번인, 설정 팁 실사용 토론'
+        description: 'OLED 사용자 커뮤니티 실사용 경험 및 토론'
       },
       {
         source_id: 'src_us_rtings_03',
         site_name: 'RTINGS.com User Feedback',
-        category: '전문 리뷰 사이트',
+        category: 'Tech Review',
         url: 'https://www.rtings.com/tv/reviews/user-comments',
-        description: '디스플레이 전문 벤치마크 사이트 실측치 및 사용자 피드백'
+        description: '디스플레이 전문 측정 분석 및 사용자 평가'
       },
       {
         source_id: 'src_us_avsforum_04',
         site_name: 'AVS Forum',
-        category: '커뮤니티',
+        category: 'Community/Forum',
         url: 'https://www.avsforum.com/threads/official-owners-thread',
-        description: null // 설명 미등록 테스트용
+        description: null // 설명 미등록 테스트용 -> '사이트 설명 미확인'으로 표시됨
       },
       {
         source_id: 'src_us_homedepot_05',
         site_name: 'Home Depot Customer Reviews',
-        category: '가전 판매점',
+        category: 'E-commerce',
         url: 'https://www.homedepot.com/p/reviews/appliance-model',
-        description: '대형 하드웨어 및 가전 매장 배송, 설치, 고객 평가'
+        description: '대형 하드웨어 가전몰 설치 및 구매자 평가'
       }
     ],
     DE: [
       {
         source_id: 'src_de_mediamarkt_01',
         site_name: 'MediaMarkt DE',
-        category: '온라인 쇼핑몰',
+        category: 'E-commerce',
         url: 'https://www.mediamarkt.de/de/product/reviews',
-        description: '독일 주요 가전 유통사 구매 인증 고객 평가'
+        description: '독일 대표 전자제품몰 구매 후기 및 평점'
       },
       {
         source_id: 'src_de_mydealz_02',
         site_name: 'mydealz.de Forum',
-        category: '커뮤니티',
+        category: 'Community/Forum',
         url: 'https://www.mydealz.de/diskussion/voc-feedback',
-        description: '독일 최대 쇼핑 커뮤니티 가격 대비 성능 실사용 평가'
+        description: '쇼핑 커뮤니티 할인 정보 및 실사용 토론'
       },
       {
         source_id: 'src_de_computerbild_03',
         site_name: 'Computer Bild Lesertests',
-        category: '전문 리뷰 사이트',
+        category: 'Tech Review',
         url: 'https://www.computerbild.de/artikel/lesertest',
         description: null
       }
@@ -71,21 +71,21 @@ const MockData = {
       {
         source_id: 'src_pl_mediaexpert_01',
         site_name: 'Media Expert PL',
-        category: '가전 판매점',
+        category: 'E-commerce',
         url: 'https://www.mediaexpert.pl/agd/opinie-klientow',
-        description: '폴란드 주요 가전 유통사 실구매 고객 평점 및 VOC'
+        description: '폴란드 가전 전문몰 구매 고객 평점'
       },
       {
         source_id: 'src_pl_wykop_02',
         site_name: 'Wykop.pl Mikroblog',
-        category: '커뮤니티',
+        category: 'Community/Forum',
         url: 'https://wykop.pl/tag/elektronika/wpisy',
-        description: '폴란드 현지 온라인 커뮤니티 실사용 이슈 토론'
+        description: '현지 종합 커뮤니티 실사용 의견'
       },
       {
         source_id: 'src_pl_rtveuroagd_03',
         site_name: 'RTV EURO AGD',
-        category: '온라인 쇼핑몰',
+        category: 'E-commerce',
         url: 'https://www.euro.com.pl/agd/opinie',
         description: null
       }
@@ -94,23 +94,23 @@ const MockData = {
       {
         source_id: 'src_kr_danawa_01',
         site_name: '다나와 상품의견',
-        category: '전문 리뷰 사이트',
+        category: 'Price Comparison',
         url: 'https://prod.danawa.com/info/?pcode=sample',
-        description: '국내 대표 가격비교 사이트 실사용자 의견 및 Q&A'
+        description: '가격비교 및 실사용자 제품 의견과 Q&A'
       },
       {
         source_id: 'src_kr_clien_02',
         site_name: '클리앙 사용기게시판',
-        category: '커뮤니티',
+        category: 'Community/Forum',
         url: 'https://www.clien.net/service/board/use',
-        description: 'IT 기기 및 가전제품 실사용 후기 및 장단점 분석'
+        description: 'IT 가전 커뮤니티 실사용 후기 및 장단점 토론'
       },
       {
         source_id: 'src_kr_naver_03',
         site_name: '네이버 쇼핑 리뷰',
-        category: '온라인 쇼핑몰',
+        category: 'E-commerce',
         url: 'https://search.shopping.naver.com',
-        description: '네이버페이 실구매자 포토후기 및 평점'
+        description: '온라인 쇼핑몰 구매 고객 후기 및 평점'
       }
     ]
   },

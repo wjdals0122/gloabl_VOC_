@@ -15,8 +15,11 @@ const SettingsModal = {
       <div class="modal-dialog modal-lg">
         <div class="modal-header">
           <div>
-            <h3>환경 설정 및 API 연동 정보</h3>
-            <p class="modal-subtext">실행 모드 전환, 엔드포인트 관리 및 개발자 규격을 확인합니다.</p>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <h3 style="margin: 0;">환경 설정 및 시스템 정보</h3>
+              <span class="badge badge-neutral" style="font-size: 11px; font-weight: 700;">Global VOC Collector v1.2</span>
+            </div>
+            <p class="modal-subtext">실행 모드, 화면 테마 및 백엔드 API 연동 정보를 관리합니다.</p>
           </div>
           <button type="button" class="modal-close" onclick="SettingsModal.close()">&times;</button>
         </div>
@@ -33,6 +36,25 @@ const SettingsModal = {
               <div>
                 <label class="toggle-switch">
                   <input type="checkbox" id="modal-switch-demo" ${AppConfig.isDemoMode ? 'checked' : ''} onchange="App.toggleDemoMode(this.checked)">
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <hr class="modal-divider">
+
+          <!-- 2. 화면 테마 설정 (다크모드) -->
+          <div class="settings-section">
+            <h4 class="settings-section-title">화면 테마</h4>
+            <div class="setting-row">
+              <div>
+                <strong>다크 모드</strong>
+                <p class="setting-desc">어두운 테마로 화면을 전환하여 가독성과 사용성을 최적화합니다.</p>
+              </div>
+              <div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="modal-switch-dark" ${App.currentTheme === 'dark' ? 'checked' : ''} onchange="App.setTheme(this.checked ? 'dark' : 'light')">
                   <span class="slider"></span>
                 </label>
               </div>

@@ -26,6 +26,9 @@ const App = {
     // 3. 뷰 초기화
     SourceView.init();
     ResultsView.init();
+    if (typeof ScheduledReportsView !== 'undefined') {
+      ScheduledReportsView.init();
+    }
 
     // 4. 모드 UI 반영 및 Webhook 주소 라벨 갱신
     this.updateModeUI();
@@ -33,16 +36,6 @@ const App = {
 
     // 5. 메인 안내 문구 완성형 타이핑 효과 (최초 진입 시 1회 실행)
     this.initTypingHero();
-
-    // 6. 데모 수집 자동 실행 파라미터 지원 (?demo_collect=1)
-    try {
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('demo_collect') === '1') {
-        setTimeout(() => {
-          SourceView.proceedToCollection();
-        }, 300);
-      }
-    } catch (e) {}
   },
 
   updateWebhookIndicator() {
@@ -155,7 +148,8 @@ const App = {
   },
 
   bindNavigation() {
-    document.querySelectorAll('.nav-tab-btn').forEach(btn => {
+    // 1. 기본 2개 탭 버튼 + 독립 탭 버튼 바인딩
+    document.querySelectorAll('.nav-tab-btn, .nav-tab-standalone').forEach(btn => {
       btn.addEventListener('click', () => {
         const targetTab = btn.dataset.tab;
         if (targetTab) {
@@ -167,21 +161,21 @@ const App = {
 
     window.addEventListener('hashchange', () => {
       const hash = window.location.hash.replace('#', '');
-      if (hash === 'tab-results' || hash === 'tab-sources') {
+      if (hash === 'tab-results' || hash === 'tab-sources' || hash === 'tab-scheduled') {
         this.navigateToTab(hash);
       }
     });
 
     const initHash = window.location.hash.replace('#', '');
-    if (initHash === 'tab-results') {
-      this.navigateToTab('tab-results');
+    if (initHash === 'tab-results' || initHash === 'tab-scheduled') {
+      this.navigateToTab(initHash);
     }
   },
 
   navigateToTab(tabId, data = null) {
     this.currentTab = tabId;
 
-    document.querySelectorAll('.nav-tab-btn').forEach(btn => {
+    document.querySelectorAll('.nav-tab-btn, .nav-tab-standalone').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.tab === tabId);
     });
 
@@ -192,6 +186,10 @@ const App = {
     if (tabId === 'tab-results') {
       if (data && data.selectedSources) {
         ResultsView.setTarget(data.country, data.product, data.selectedSources, data.autoStart !== false);
+      }
+    } else if (tabId === 'tab-scheduled') {
+      if (typeof ScheduledReportsView !== 'undefined') {
+        ScheduledReportsView.render();
       }
     }
   },

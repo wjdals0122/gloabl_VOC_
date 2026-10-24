@@ -20,8 +20,9 @@
         <img src="images/lg-voc-lab-header-logo.png" alt="LG 글로벌 VOC 랩 | 해외 고객 반응을 수집·분석하는 AI Agent" class="brand-logo-img">
       </a>
 
-      <!-- 2개 주요 메뉴 (VOC 탐색 / 수집 결과) -->
+      <!-- 주요 메뉴: 2개 기본 파이프라인 탭(Pill)과 명확히 구분된 독립형 정기 리포트 예약 탭 -->
       <nav class="header-center-nav" role="navigation" aria-label="주요 메뉴">
+        <!-- 1. 기본 수집 파이프라인 (2단계 묶음) -->
         <div class="nav-tab-pill">
           <button type="button" class="nav-tab-btn active" id="nav-btn-sources" data-tab="tab-sources">
             VOC 탐색
@@ -30,12 +31,20 @@
             수집 결과
           </button>
         </div>
+
+        <!-- 2. 시각적 구분자 (두 탭과 묶이지 않도록 명확히 분리) -->
+        <div class="nav-tab-divider" aria-hidden="true"></div>
+
+        <!-- 3. 구분된 독립 탭: 정기 리포트 예약 -->
+        <button type="button" class="nav-tab-standalone" id="nav-btn-scheduled" data-tab="tab-scheduled" title="원하는 주기(매주 월요일 09시 등)로 VOC를 자동 수집하여 이메일로 받아보는 기능">
+          <span class="tab-icon">⏰</span>
+          <span>정기 리포트 예약</span>
+          <span class="scheduled-badge" id="nav-scheduled-badge">2</span>
+        </button>
       </nav>
 
-      <!-- 우측 컨트롤 영역: 데모 안내 + 데모 배지 + 설정 버튼 -->
+      <!-- 우측 컨트롤 영역: 데모 배지 + 설정 버튼 (불필요한 빨간색 중복 안내문 삭제) -->
       <div class="header-right">
-        <span class="header-demo-notice" id="header-demo-notice">* 데모 데이터로 체험 중입니다.</span>
-
         <!-- 소형 데모 상태 배지 및 토글 -->
         <button type="button" class="btn-demo-badge active" id="btn-toggle-demo" title="클릭하여 데모 모드를 켜거나 끌 수 있습니다.">
           <span class="demo-badge-dot"></span>
@@ -118,6 +127,16 @@
       </div>
     </section>
 
+    <!-- ----------------------------------------------------------------------
+         화면 3: 정기 리포트 예약 및 발송 내역 (독립 탭)
+         ---------------------------------------------------------------------- -->
+    <section class="tab-view-section" id="tab-scheduled" aria-labelledby="nav-btn-scheduled">
+      <!-- 정기 예약 관리 뷰 (ScheduledReportsView 동적 렌더링) -->
+      <div id="view-scheduled-content">
+        <!-- JS ScheduledReportsView 렌더링 -->
+      </div>
+    </section>
+
   </main>
 
   <!-- ==========================================================================
@@ -136,6 +155,7 @@
   <script src="js/api.js"></script>
   <script src="js/views/source_view.js"></script>
   <script src="js/views/results_view.js"></script>
+  <script src="js/views/scheduled_reports_view.js"></script>
   <script src="js/views/settings_modal.js"></script>
   <script src="js/views/api_docs_view.js"></script>
   <script src="js/app.js"></script>

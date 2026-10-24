@@ -136,7 +136,6 @@ const MockData = {
       } else {
         vocContent = `## ${source.site_name} Customer Reviews for ${product}\n\n` +
           `[Summary]\n` +
-          `- Extraction Mode: markdown via ScrapingAnt\n` +
           `- Raw Review Snippets:\n` +
           `"The picture quality exceeded expectations, with deep blacks and vibrant brightness."\n` +
           `"Quiet operation and sleek design. Wall mounting was straightforward."\n` +

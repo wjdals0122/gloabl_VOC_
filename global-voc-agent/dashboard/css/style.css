@@ -451,25 +451,74 @@ body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
-/* --- 상단 우측 유틸리티 컨트롤 (데모 안내 문구, 데모 배지, 설정) --- */
+/* --- 구분된 독립형 정기 리포트 예약 탭 (기존 2개 탭과 묶이지 않도록 시각적 분리) --- */
+.nav-tab-divider {
+  width: 1px;
+  height: 20px;
+  background-color: #cbd5e1;
+  margin: 0 10px;
+}
+
+.nav-tab-standalone {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #ffffff;
+  color: #475569;
+  border: 1.5px solid #e2e8f0;
+  padding: 6px 14px;
+  font-size: 13.5px;
+  font-weight: 700;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: inherit;
+  line-height: 1.3;
+}
+
+.nav-tab-standalone:hover {
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
+  transform: translateY(-1px);
+}
+
+.nav-tab-standalone.active {
+  background-color: #fff1f3;
+  border-color: #fda4af;
+  color: #ab1736;
+  box-shadow: 0 2px 6px rgba(171, 23, 54, 0.12);
+}
+
+.nav-tab-standalone .tab-icon {
+  font-size: 14px;
+}
+
+.nav-tab-standalone .scheduled-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  font-size: 11px;
+  font-weight: 800;
+  border-radius: 10px;
+  background-color: #f1f5f9;
+  color: #475569;
+  margin-left: 2px;
+}
+
+.nav-tab-standalone.active .scheduled-badge {
+  background-color: #ab1736;
+  color: #ffffff;
+}
+
+/* --- 상단 우측 유틸리티 컨트롤 (데모 배지, 설정) --- */
 .header-right {
   display: flex;
   align-items: center;
   gap: 12px;
-}
-
-.header-demo-notice {
-  font-size: 13px;
-  font-weight: 600;
-  color: #ab1736;
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-}
-
-@media (max-width: 900px) {
-  .header-demo-notice {
-    display: none;
-  }
 }
 
 /* 소형 데모 상태 배지 및 토글 */
@@ -1774,3 +1823,536 @@ input:checked + .slider:before {
     justify-content: space-between;
   }
 }
+
+/* ==========================================================================
+   화면 3: 정기 리포트 예약 및 발송 관리 (Scheduled Reports View)
+   ========================================================================== */
+.scheduled-hero-header {
+  text-align: center;
+  padding: 32px 20px 24px;
+}
+
+.scheduled-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #fff1f3;
+  color: #ab1736;
+  border: 1px solid #fda4af;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.scheduled-hero-title {
+  font-family: 'LG smart UI', 'LG Smart UI', 'SUIT Variable', 'SUIT', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  color: #111827;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+
+.scheduled-hero-subtitle {
+  font-size: 15px;
+  color: #64748b;
+  max-width: 680px;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
+/* 카드 기본 */
+.scheduled-card {
+  background-color: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 24px 28px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+}
+
+.card-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.card-section-header .header-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.header-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background-color: #ab1736;
+  color: #ffffff;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 800;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.card-section-title {
+  font-family: 'LG smart UI', 'LG Smart UI', 'SUIT Variable', 'SUIT', sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  color: #111827;
+  letter-spacing: -0.01em;
+  margin-bottom: 4px;
+}
+
+.card-section-desc {
+  font-size: 13.5px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+/* 등록 폼 */
+.schedule-form-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+@media (max-width: 1024px) {
+  .schedule-form-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .schedule-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.schedule-form-grid .form-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.field-label {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 6px;
+}
+
+.field-label .required {
+  color: #e11d48;
+}
+
+.schedule-options-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background-color: #f8fafc;
+  padding: 12px 18px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.options-label {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.option-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  color: #334155;
+  cursor: pointer;
+}
+
+.option-checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #ab1736;
+  cursor: pointer;
+}
+
+.form-submit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.form-submit-hint {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.btn-register-schedule {
+  padding: 10px 24px;
+  font-size: 14.5px;
+  font-weight: 700;
+  border-radius: 8px;
+  background-color: #ab1736;
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(171, 23, 54, 0.25);
+  transition: all 0.15s ease;
+}
+
+.btn-register-schedule:hover:not(:disabled) {
+  background-color: #8c0028;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(171, 23, 54, 0.35);
+}
+
+/* 관리 목록 */
+.list-summary-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  color: #64748b;
+}
+
+.list-summary-stats strong {
+  color: #111827;
+  font-weight: 700;
+}
+
+.list-summary-stats .active-stat strong {
+  color: #059669;
+}
+
+.list-summary-stats .stat-divider {
+  color: #cbd5e1;
+}
+
+/* 스케줄 테이블 */
+.table-responsive-wrapper {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.schedule-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  background-color: #ffffff;
+}
+
+.schedule-data-table thead th {
+  background-color: #f8fafc;
+  color: #475569;
+  font-weight: 700;
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1.5px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.schedule-data-table tbody td {
+  padding: 14px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.schedule-data-table tbody tr:hover {
+  background-color: #fdf2f4;
+}
+
+.schedule-data-table tbody tr.row-paused {
+  opacity: 0.65;
+  background-color: #fafafa;
+}
+
+/* 토글 스위치 (iOS Style) */
+.switch-toggle {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+  cursor: pointer;
+}
+
+.switch-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch-slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #cbd5e1;
+  transition: 0.2s;
+  border-radius: 22px;
+}
+
+.switch-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.2s;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.switch-toggle input:checked + .switch-slider {
+  background-color: #059669;
+}
+
+.switch-toggle input:checked + .switch-slider:before {
+  transform: translateX(18px);
+}
+
+.status-label-sub {
+  font-size: 11px;
+  margin-top: 3px;
+  font-weight: 600;
+}
+
+.text-success {
+  color: #059669;
+}
+
+.text-muted {
+  color: #94a3b8;
+}
+
+/* 대상 컬럼 */
+.target-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.country-pill-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 800;
+  border-radius: 4px;
+  background-color: #e2e8f0;
+  color: #334155;
+}
+
+.product-title {
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.target-sub-info {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+/* 발송 주기 */
+.schedule-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: #334155;
+}
+
+/* 이메일 */
+.email-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.email-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  background-color: #f1f5f9;
+  color: #475569;
+  padding: 2px 8px;
+  border-radius: 4px;
+  width: fit-content;
+}
+
+/* 다음 실행 */
+.next-run-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.next-run-badge.active-run {
+  background-color: #e0f2fe;
+  color: #0369a1;
+}
+
+.next-run-badge.paused-run {
+  background-color: #f1f5f9;
+  color: #94a3b8;
+}
+
+/* 최근 발송 */
+.last-run-info {
+  font-size: 12.5px;
+  color: #64748b;
+  line-height: 1.3;
+}
+
+/* 액션 버튼 */
+.action-btn-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-test-send {
+  background-color: #ffffff;
+  color: #ab1736;
+  border-color: #fda4af;
+  font-weight: 700;
+}
+
+.btn-test-send:hover:not(:disabled) {
+  background-color: #fff1f3;
+  border-color: #ab1736;
+}
+
+.btn-outline-danger {
+  background: transparent;
+  color: #94a3b8;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s ease;
+}
+
+.btn-outline-danger:hover {
+  color: #e11d48;
+  border-color: #fca5a5;
+  background-color: #fff1f2;
+}
+
+/* 빈 상태 */
+.empty-state-box {
+  text-align: center;
+  padding: 48px 20px;
+  background-color: #f8fafc;
+  border-radius: 8px;
+}
+
+.empty-icon {
+  font-size: 36px;
+  margin-bottom: 8px;
+}
+
+.empty-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 4px;
+}
+
+.empty-desc {
+  font-size: 13.5px;
+  color: #64748b;
+}
+
+/* 토스트 알림 */
+.scheduled-toast-container {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 9999;
+}
+
+.scheduled-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: #1e293b;
+  color: #ffffff;
+  padding: 12px 20px;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  font-size: 14px;
+  font-weight: 600;
+  animation: slideUpToast 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.scheduled-toast.success {
+  border-left: 4px solid #10b981;
+}
+
+.scheduled-toast.info {
+  border-left: 4px solid #3b82f6;
+}
+
+@keyframes slideUpToast {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 다크모드 대응 */
+[data-theme="dark"] .scheduled-card {
+  background-color: var(--bg-surface);
+  border-color: var(--border-medium);
+}
+
+[data-theme="dark"] .scheduled-hero-title,
+[data-theme="dark"] .card-section-title,
+[data-theme="dark"] .product-title {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .schedule-options-row,
+[data-theme="dark"] .schedule-data-table thead th,
+[data-theme="dark"] .empty-state-box {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="dark"] .schedule-data-table {
+  background-color: var(--bg-surface);
+}
+
+[data-theme="dark"] .nav-tab-standalone {
+  background-color: var(--bg-surface);
+  border-color: var(--border-medium);
+  color: var(--text-muted);
+}
+

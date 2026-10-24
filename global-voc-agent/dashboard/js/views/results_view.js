@@ -479,11 +479,7 @@ const ResultsView = {
               </a>
             </div>
             <div class="header-action-box">
-              ${httpBadge}
-              <span class="content-length-tag">${item.voc_content.length.toLocaleString()}자</span>
-              <button type="button" class="btn btn-sm btn-outline" onclick="ResultsView.openDetailModal('${item.id}')">
-                상세 패널
-              </button>
+              ${!isHttpOk ? `<span class="badge badge-danger">수집 실패 (${item.status_code})</span>` : ''}
               <button type="button" class="btn btn-sm btn-secondary" onclick="ResultsView.toggleAccordion('${item.id}')">
                 ${isExpanded ? '접기 ▲' : '펼쳐보기 ▼'}
               </button>

@@ -18,6 +18,9 @@ const App = {
 
     // 1. 테마 초기화 (기본값: 라이트 모드)
     this.initTheme();
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual';
+    }
 
     // 2. 네비게이션 및 헤더 컨트롤 바인딩
     this.bindNavigation();
@@ -150,10 +153,15 @@ const App = {
   bindNavigation() {
     // 1. 기본 2개 탭 버튼 + 독립 탭 버튼 바인딩
     document.querySelectorAll('.nav-tab-btn, .nav-tab-standalone').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
         const targetTab = btn.dataset.tab;
         if (targetTab) {
-          window.location.hash = targetTab;
+          if (window.history && window.history.pushState) {
+            window.history.pushState(null, '', '#' + targetTab);
+          } else {
+            window.location.hash = targetTab;
+          }
           this.navigateToTab(targetTab);
         }
       });
@@ -166,9 +174,13 @@ const App = {
       }
     });
 
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
     const initHash = window.location.hash.replace('#', '');
-    if (initHash === 'tab-results' || initHash === 'tab-scheduled') {
-      this.navigateToTab(initHash);
+    if (tabParam === 'scheduled' || initHash === 'tab-scheduled') {
+      this.navigateToTab('tab-scheduled');
+    } else if (tabParam === 'results' || initHash === 'tab-results') {
+      this.navigateToTab('tab-results');
     }
   },
 
@@ -182,6 +194,8 @@ const App = {
     document.querySelectorAll('.tab-view-section').forEach(section => {
       section.classList.toggle('active', section.id === tabId);
     });
+
+    window.scrollTo(0, 0);
 
     if (tabId === 'tab-results') {
       if (data && data.selectedSources) {

@@ -484,10 +484,10 @@ body {
 }
 
 .nav-tab-standalone.active {
-  background-color: #fff1f3;
+  background-color: #fff0f2;
   border-color: #fda4af;
   color: #ab1736;
-  box-shadow: 0 2px 6px rgba(171, 23, 54, 0.12);
+  box-shadow: none;
 }
 
 .nav-tab-standalone .tab-icon {
@@ -498,12 +498,11 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 18px;
+  width: 18px;
   height: 18px;
-  padding: 0 5px;
   font-size: 11px;
   font-weight: 800;
-  border-radius: 10px;
+  border-radius: 50%;
   background-color: #f1f5f9;
   color: #475569;
   margin-left: 2px;
@@ -1825,30 +1824,16 @@ input:checked + .slider:before {
 }
 
 /* ==========================================================================
-   화면 3: 정기 리포트 예약 및 발송 관리 (Scheduled Reports View)
+   화면 3: 정기 리포트 예약 및 발송 관리 (Scheduled Reports View - Figma Pixel-Match)
    ========================================================================== */
 .scheduled-hero-header {
   text-align: center;
-  padding: 32px 20px 24px;
-}
-
-.scheduled-hero-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background-color: #fff1f3;
-  color: #ab1736;
-  border: 1px solid #fda4af;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 700;
-  margin-bottom: 12px;
+  padding: 30px 20px 22px;
 }
 
 .scheduled-hero-title {
   font-family: 'LG smart UI', 'LG Smart UI', 'SUIT Variable', 'SUIT', sans-serif;
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 800;
   color: #111827;
   letter-spacing: -0.02em;
@@ -1856,11 +1841,11 @@ input:checked + .slider:before {
 }
 
 .scheduled-hero-subtitle {
-  font-size: 15px;
+  font-size: 14px;
   color: #64748b;
   max-width: 680px;
   margin: 0 auto;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 /* 카드 기본 */
@@ -1869,43 +1854,17 @@ input:checked + .slider:before {
   border: 1.5px solid #e2e8f0;
   border-radius: 12px;
   padding: 24px 28px;
-  margin-bottom: 24px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+  margin-bottom: 28px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
 }
 
-.card-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.form-card-header {
   margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #f1f5f9;
-}
-
-.card-section-header .header-left {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.header-step-num {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  background-color: #ab1736;
-  color: #ffffff;
-  border-radius: 50%;
-  font-size: 13px;
-  font-weight: 800;
-  flex-shrink: 0;
-  margin-top: 2px;
 }
 
 .card-section-title {
   font-family: 'LG smart UI', 'LG Smart UI', 'SUIT Variable', 'SUIT', sans-serif;
-  font-size: 18px;
+  font-size: 17.5px;
   font-weight: 800;
   color: #111827;
   letter-spacing: -0.01em;
@@ -1913,8 +1872,8 @@ input:checked + .slider:before {
 }
 
 .card-section-desc {
-  font-size: 13.5px;
-  color: #64748b;
+  font-size: 13px;
+  color: #94a3b8;
   line-height: 1.4;
 }
 
@@ -1944,29 +1903,54 @@ input:checked + .slider:before {
 }
 
 .field-label {
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 700;
   color: #334155;
   margin-bottom: 6px;
 }
 
 .field-label .required {
-  color: #e11d48;
+  color: #ab1736;
+  font-weight: 700;
+}
+
+.schedule-form-grid .input-select,
+.schedule-form-grid .input-text {
+  height: 40px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #111827;
+  padding: 0 10px;
+  background: #ffffff;
+  font-family: inherit;
+}
+
+.schedule-form-grid .input-text::placeholder {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.schedule-form-grid .input-select:focus,
+.schedule-form-grid .input-text:focus {
+  outline: none;
+  border-color: #ab1736;
+  box-shadow: 0 0 0 3px rgba(171, 23, 54, 0.12);
 }
 
 .schedule-options-row {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 24px;
   background-color: #f8fafc;
-  padding: 12px 18px;
+  padding: 10px 16px;
   border-radius: 8px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   flex-wrap: wrap;
 }
 
 .options-label {
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 700;
   color: #475569;
 }
@@ -1975,56 +1959,75 @@ input:checked + .slider:before {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 13.5px;
+  font-size: 13px;
+  font-weight: 500;
   color: #334155;
   cursor: pointer;
 }
 
 .option-checkbox-label input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   accent-color: #ab1736;
   cursor: pointer;
 }
 
 .form-submit-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.form-submit-hint {
-  font-size: 13px;
-  color: #64748b;
+  justify-content: flex-end;
 }
 
 .btn-register-schedule {
   padding: 10px 24px;
-  font-size: 14.5px;
+  font-size: 14px;
   font-weight: 700;
   border-radius: 8px;
   background-color: #ab1736;
   color: #ffffff;
   border: none;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(171, 23, 54, 0.25);
+  box-shadow: 0 2px 6px rgba(171, 23, 54, 0.25);
   transition: all 0.15s ease;
+  font-family: inherit;
 }
 
 .btn-register-schedule:hover:not(:disabled) {
   background-color: #8c0028;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(171, 23, 54, 0.35);
+  box-shadow: 0 4px 10px rgba(171, 23, 54, 0.35);
 }
 
-/* 관리 목록 */
+/* 관리 목록 섹션 (Figma: 카드 밖 섹션 헤더) */
+.scheduled-section-container {
+  margin-bottom: 40px;
+}
+
+.scheduled-section-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.scheduled-section-header .section-title {
+  font-family: 'LG smart UI', 'LG Smart UI', 'SUIT Variable', 'SUIT', sans-serif;
+  font-size: 17.5px;
+  font-weight: 800;
+  color: #111827;
+  letter-spacing: -0.01em;
+  margin-bottom: 4px;
+}
+
+.scheduled-section-header .section-desc {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
 .list-summary-stats {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13.5px;
+  gap: 6px;
+  font-size: 13px;
   color: #64748b;
 }
 
@@ -2041,17 +2044,23 @@ input:checked + .slider:before {
   color: #cbd5e1;
 }
 
-/* 스케줄 테이블 */
+/* 스케줄 테이블 카드 */
+.scheduled-table-card {
+  background-color: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
 .table-responsive-wrapper {
   overflow-x: auto;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
 }
 
 .schedule-data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13.5px;
+  font-size: 13px;
   background-color: #ffffff;
 }
 
@@ -2080,12 +2089,12 @@ input:checked + .slider:before {
   background-color: #fafafa;
 }
 
-/* 토글 스위치 (iOS Style) */
+/* 토글 스위치 (iOS Style - 텍스트 없이 스위치 단독 노출) */
 .switch-toggle {
   position: relative;
   display: inline-block;
-  width: 40px;
-  height: 22px;
+  width: 38px;
+  height: 20px;
   cursor: pointer;
 }
 
@@ -2103,20 +2112,20 @@ input:checked + .slider:before {
   bottom: 0;
   background-color: #cbd5e1;
   transition: 0.2s;
-  border-radius: 22px;
+  border-radius: 20px;
 }
 
 .switch-slider:before {
   position: absolute;
   content: "";
-  height: 16px;
-  width: 16px;
+  height: 14px;
+  width: 14px;
   left: 3px;
   bottom: 3px;
   background-color: white;
   transition: 0.2s;
   border-radius: 50%;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .switch-toggle input:checked + .switch-slider {
@@ -2127,30 +2136,16 @@ input:checked + .slider:before {
   transform: translateX(18px);
 }
 
-.status-label-sub {
-  font-size: 11px;
-  margin-top: 3px;
-  font-weight: 600;
-}
-
-.text-success {
-  color: #059669;
-}
-
-.text-muted {
-  color: #94a3b8;
-}
-
 /* 대상 컬럼 */
 .target-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .country-pill-badge {
   display: inline-block;
-  padding: 2px 7px;
+  padding: 2px 6px;
   font-size: 11px;
   font-weight: 800;
   border-radius: 4px;
@@ -2160,7 +2155,7 @@ input:checked + .slider:before {
 
 .product-title {
   color: #0f172a;
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 700;
 }
 
@@ -2170,13 +2165,37 @@ input:checked + .slider:before {
   margin-top: 2px;
 }
 
-/* 발송 주기 */
-.schedule-text {
+/* 발송 주기 (아이콘 + 2줄 텍스트) */
+.schedule-text-box {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
+}
+
+.sched-icon-box {
+  color: #64748b;
+  margin-top: 2px;
+  display: inline-flex;
+}
+
+.schedule-lines {
+  display: flex;
+  flex-direction: column;
+  white-space: nowrap;
+}
+
+.schedule-lines .line-primary {
+  font-size: 13px;
   font-weight: 600;
   color: #334155;
+  white-space: nowrap;
+}
+
+.schedule-lines .line-secondary {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 1px;
+  white-space: nowrap;
 }
 
 /* 이메일 */
@@ -2193,70 +2212,116 @@ input:checked + .slider:before {
   font-size: 12px;
   background-color: #f1f5f9;
   color: #475569;
-  padding: 2px 8px;
+  padding: 3px 8px;
   border-radius: 4px;
   width: fit-content;
+  white-space: nowrap;
 }
 
-/* 다음 실행 */
-.next-run-badge {
+.email-icon {
+  font-size: 11px;
+}
+
+/* 다음 실행 예정 (Soft blue pill, 2 lines) */
+.next-run-pill {
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  padding: 4px 10px;
+  justify-content: center;
+  padding: 6px 14px;
   border-radius: 6px;
-  font-size: 12.5px;
-  font-weight: 600;
+  text-align: center;
+  width: fit-content;
+  white-space: nowrap;
 }
 
-.next-run-badge.active-run {
+.next-run-pill.active-run {
   background-color: #e0f2fe;
-  color: #0369a1;
+  color: #0284c7;
 }
 
-.next-run-badge.paused-run {
+.next-run-pill.paused-run {
   background-color: #f1f5f9;
   color: #94a3b8;
 }
 
-/* 최근 발송 */
-.last-run-info {
-  font-size: 12.5px;
-  color: #64748b;
-  line-height: 1.3;
+.next-run-pill .next-date {
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
-/* 액션 버튼 */
+.next-run-pill .next-time {
+  font-size: 11.5px;
+  font-weight: 600;
+  margin-top: 1px;
+  white-space: nowrap;
+}
+
+/* 최근 발송 이력 (2줄 회색 텍스트) */
+.last-run-lines {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.last-run-lines .last-date,
+.last-run-lines .last-status {
+  white-space: nowrap;
+}
+
+/* 관리 액션 버튼들 */
 .action-btn-group {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
+  white-space: nowrap;
 }
 
-.btn-test-send {
+.btn-action-test {
   background-color: #ffffff;
   color: #ab1736;
-  border-color: #fda4af;
+  border: 1px solid #fda4af;
+  border-radius: 4px;
+  padding: 5px 12px;
+  font-size: 12px;
   font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.btn-test-send:hover:not(:disabled) {
+.btn-action-test:hover:not(:disabled) {
   background-color: #fff1f3;
   border-color: #ab1736;
 }
 
-.btn-outline-danger {
-  background: transparent;
+.btn-action-delete {
+  background-color: #ffffff;
   color: #94a3b8;
   border: 1px solid #e2e8f0;
   border-radius: 4px;
-  padding: 4px 8px;
-  cursor: pointer;
+  padding: 5px 12px;
   font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
   transition: all 0.15s ease;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.btn-outline-danger:hover {
+.btn-action-delete:hover {
   color: #e11d48;
   border-color: #fca5a5;
   background-color: #fff1f2;
@@ -2329,13 +2394,15 @@ input:checked + .slider:before {
 }
 
 /* 다크모드 대응 */
-[data-theme="dark"] .scheduled-card {
+[data-theme="dark"] .scheduled-card,
+[data-theme="dark"] .scheduled-table-card {
   background-color: var(--bg-surface);
   border-color: var(--border-medium);
 }
 
 [data-theme="dark"] .scheduled-hero-title,
 [data-theme="dark"] .card-section-title,
+[data-theme="dark"] .section-title,
 [data-theme="dark"] .product-title {
   color: #f8fafc;
 }
@@ -2355,4 +2422,5 @@ input:checked + .slider:before {
   border-color: var(--border-medium);
   color: var(--text-muted);
 }
+
 

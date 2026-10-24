@@ -43,36 +43,37 @@ const App = {
   },
 
   initTypingHero() {
-    if (this._hasRunTyping) return;
-    this._hasRunTyping = true;
-
     const displayEl = document.querySelector('.typing-text-display');
     const cursorEl = document.querySelector('.typing-cursor');
     if (!displayEl) return;
 
+    if (this._hasRunTyping) return;
+    this._hasRunTyping = true;
+
     const fullText = '세계 곳곳의 고객 목소리를 찾아보세요.';
 
-    // prefers-reduced-motion 설정 확인: 활성화 시 애니메이션 없이 즉시 표시
-    const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReducedMotion) {
-      displayEl.textContent = fullText;
-      if (cursorEl) cursorEl.style.display = 'none';
-      return;
+    // 이전 타이머 초기화 및 커서 가시화
+    if (this._typingTimer) clearInterval(this._typingTimer);
+    if (this._cursorTimer) clearTimeout(this._cursorTimer);
+
+    displayEl.textContent = '';
+    if (cursorEl) {
+      cursorEl.style.display = 'inline-block';
+      cursorEl.classList.remove('fade-out');
     }
 
     let currentIndex = 0;
     const totalChars = fullText.length;
-    const charInterval = 75; // 75ms * 20 = 1500ms (1.5~2초 범위 충족)
+    const charInterval = 75; // 75ms * 21자 = 약 1.57초 동안 완성된 글자 단위로 자연스럽게 출력
 
-    const typeNext = () => {
+    this._typingTimer = setInterval(() => {
       if (currentIndex <= totalChars) {
-        // 완성된 글자 단위로 출력 (한글 자모 분리 없음)
         displayEl.textContent = fullText.slice(0, currentIndex);
         currentIndex++;
-        setTimeout(typeNext, charInterval);
       } else {
+        clearInterval(this._typingTimer);
         // 입력 완료 후 커서는 1.2초간 깜빡인 후 부드럽게 사라짐
-        setTimeout(() => {
+        this._cursorTimer = setTimeout(() => {
           if (cursorEl) {
             cursorEl.classList.add('fade-out');
             setTimeout(() => {
@@ -81,10 +82,7 @@ const App = {
           }
         }, 1200);
       }
-    };
-
-    // 첫 진입 후 100ms 지연 후 시작
-    setTimeout(typeNext, 100);
+    }, charInterval);
   },
 
   initTheme() {
@@ -151,10 +149,23 @@ const App = {
       btn.addEventListener('click', () => {
         const targetTab = btn.dataset.tab;
         if (targetTab) {
+          window.location.hash = targetTab;
           this.navigateToTab(targetTab);
         }
       });
     });
+
+    window.addEventListener('hashchange', () => {
+      const hash = window.location.hash.replace('#', '');
+      if (hash === 'tab-results' || hash === 'tab-sources') {
+        this.navigateToTab(hash);
+      }
+    });
+
+    const initHash = window.location.hash.replace('#', '');
+    if (initHash === 'tab-results') {
+      this.navigateToTab('tab-results');
+    }
   },
 
   navigateToTab(tabId, data = null) {
@@ -224,6 +235,8 @@ const App = {
   }
 };
 
-document.addEventListener('DOMContentLoaded', () => {
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => App.init());
+} else {
   App.init();
-});
+}

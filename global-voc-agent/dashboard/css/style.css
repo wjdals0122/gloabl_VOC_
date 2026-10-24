@@ -196,7 +196,7 @@
 }
 
 body, input, button, select, textarea {
-  font-family: 'LG smart UI', 'LG Smart UI', 'SUIT Variable', 'SUIT', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'SUIT Variable', 'SUIT', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 body {
@@ -363,11 +363,10 @@ body {
   gap: 16px;
 }
 
-/* --- 로고플레이 및 브랜드 아이덴티티 디자인 (LG 글로벌 VOC 랩) --- */
+/* --- 로고플레이 및 브랜드 아이덴티티 디자인 (첨부 이미지 연동) --- */
 .brand-logo-wrap {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
   text-decoration: none;
   cursor: pointer;
   transition: opacity 0.18s ease, transform 0.18s ease;
@@ -379,62 +378,18 @@ body {
   transform: translateY(-1px);
 }
 
-.lg-logo-symbol {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.lg-symbol-svg {
+.brand-logo-img {
+  height: 44px;
+  width: auto;
+  max-width: 260px;
+  object-fit: contain;
   display: block;
-  width: 38px;
-  height: 38px;
 }
 
-.brand-divider {
-  width: 1px;
-  height: 28px;
-  background-color: #cbd5e1;
-  flex-shrink: 0;
-}
-
-.brand-text-group {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.brand-main-title {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-  font-family: 'LG smart UI', 'LG Smart UI', 'SUIT Variable', 'SUIT', sans-serif;
-  font-size: 21px;
-  font-weight: 800;
-  line-height: 1.15;
-  color: #111827;
-  letter-spacing: -0.01em;
-}
-
-.brand-title-lg {
-  font-weight: 800;
-  color: #111827;
-}
-
-.brand-title-global {
-  font-weight: 700;
-  color: #111827;
-}
-
-.brand-title-voc {
-  color: #a50034;
-  font-weight: 800;
-}
-
-.brand-title-lab {
-  font-weight: 700;
-  color: #111827;
+@media (max-width: 640px) {
+  .brand-logo-img {
+    height: 36px;
+  }
 }
 
 .brand-subtext {
@@ -646,15 +601,9 @@ body {
   50% { opacity: 0; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .typing-cursor {
-    display: none !important;
-  }
-}
-
-/* 정적 서브 텍스트 */
+/* 정적 서브 텍스트 (SUIT 폰트 적용) */
 .search-hero-subtitle {
-  font-family: 'LG smart UI', 'LG Smart UI', 'SUIT Variable', 'SUIT', sans-serif;
+  font-family: 'SUIT Variable', 'SUIT', sans-serif;
   font-size: 16px;
   color: #64748b;
   letter-spacing: 0.005em;
@@ -781,7 +730,7 @@ body {
 }
 
 .table-title {
-  font-family: 'LG smart UI', 'LG Smart UI', 'SUIT Variable', 'SUIT', sans-serif;
+  font-family: 'SUIT Variable', 'SUIT', sans-serif;
   font-size: 17.5px;
   font-weight: 800;
   color: #111827;
@@ -1175,8 +1124,8 @@ body {
   font-family: 'JetBrains Mono', monospace;
 }
 
-/* 결과 서브 네비게이션 */
-.results-subnav-bar {
+/* 결과 헤더 및 사이트별 수집 내용 부제목 (검은색 폰트) */
+.results-header-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1185,32 +1134,16 @@ body {
   gap: 12px;
 }
 
-.subnav-tabs {
-  display: flex;
+.results-section-title {
+  font-family: 'SUIT Variable', 'SUIT', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827; /* 검은색 폰트 부제목 */
+  letter-spacing: -0.01em;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
-}
-
-.subnav-btn {
-  background-color: var(--bg-surface);
-  color: var(--text-muted);
-  border: 1px solid var(--border-subtle);
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.subnav-btn:hover {
-  color: var(--text-main);
-  background-color: var(--bg-surface-elevated);
-}
-
-.subnav-btn.active {
-  background-color: var(--color-primary);
-  color: #ffffff;
-  border-color: var(--color-primary);
 }
 
 .input-text-sm {

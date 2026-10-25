@@ -228,7 +228,6 @@ const ScheduledReportsView = {
         <div class="scheduled-section-header">
           <div class="header-left">
             <h3 class="section-title">정기 수집 및 발송 내역 관리</h3>
-            <p class="section-desc">현재 등록된 자동화 스케줄 내역입니다. 활성화 상태를 변경하거나 테스트 발송을 진행할 수 있습니다.</p>
           </div>
           <div class="list-summary-stats">
             <span class="stat-item">전체 <strong>${totalCount}</strong>건</span>

@@ -2004,9 +2004,9 @@ input:checked + .slider:before {
 
 .scheduled-section-header {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .scheduled-section-header .section-title {
@@ -2015,12 +2015,7 @@ input:checked + .slider:before {
   font-weight: 800;
   color: #111827;
   letter-spacing: -0.01em;
-  margin-bottom: 4px;
-}
-
-.scheduled-section-header .section-desc {
-  font-size: 13px;
-  color: #94a3b8;
+  margin-bottom: 0;
 }
 
 .list-summary-stats {

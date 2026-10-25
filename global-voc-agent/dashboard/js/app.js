@@ -157,31 +157,18 @@ const App = {
         e.preventDefault();
         const targetTab = btn.dataset.tab;
         if (targetTab) {
-          if (window.history && window.history.pushState) {
-            window.history.pushState(null, '', '#' + targetTab);
-          } else {
-            window.location.hash = targetTab;
-          }
           this.navigateToTab(targetTab);
         }
       });
     });
 
-    window.addEventListener('hashchange', () => {
-      const hash = window.location.hash.replace('#', '');
-      if (hash === 'tab-results' || hash === 'tab-sources' || hash === 'tab-scheduled') {
-        this.navigateToTab(hash);
-      }
-    });
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const tabParam = urlParams.get('tab');
-    const initHash = window.location.hash.replace('#', '');
-    if (tabParam === 'scheduled' || initHash === 'tab-scheduled') {
-      this.navigateToTab('tab-scheduled');
-    } else if (tabParam === 'results' || initHash === 'tab-results') {
-      this.navigateToTab('tab-results');
+    // 2. 새로고침 시 항상 메인 'VOC 탐색' 탭이 활성화되도록 보장 (이전 해시 잔존 시 리셋)
+    if (window.location.hash) {
+      try {
+        history.replaceState(null, '', window.location.pathname);
+      } catch (e) {}
     }
+    this.navigateToTab('tab-sources');
   },
 
   navigateToTab(tabId, data = null) {

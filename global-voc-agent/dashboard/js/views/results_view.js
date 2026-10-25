@@ -20,10 +20,15 @@ const ResultsView = {
     statusMessage: '',
     rawCsvText: '',
     results: [],
-    activeFilter: 'all', // 'all' | 'lg_only' | 'negative' | 'competitors' | 'positive'
+
+    // 개편된 스마트 필터
+    activeFilter: 'all', // 'all' | 'lg_only' | 'positive' | 'neutral' | 'negative' | 'competitors'
+    selectedCompetitor: 'all', // 'all' 또는 특정 브랜드명 ('Samsung', 'GE', 'Whirlpool', 'Sony' 등)
+    selectedSites: new Set(), // 수집 사이트 체크 필터 (비어있으면 전체)
+    searchFilter: '',
+
     expandedSiteNames: new Set(),
     expandedReviewIds: new Set(),
-    searchFilter: '',
     progressTimer: null
   },
 
@@ -51,6 +56,10 @@ const ResultsView = {
     this.state.selectedSources = sources || [];
     this.state.rawCsvText = '';
     this.state.results = [];
+    this.state.activeFilter = 'all';
+    this.state.selectedCompetitor = 'all';
+    this.state.selectedSites.clear();
+    this.state.searchFilter = '';
     this.state.expandedSiteNames.clear();
     this.state.expandedReviewIds.clear();
 
@@ -193,17 +202,114 @@ const ResultsView = {
     }
   },
 
-  downloadResultCsv() {
-    if (!this.state.rawCsvText) {
+  // 필터 상태 텍스트 요약
+  getFilterDescription() {
+    const parts = [];
+    if (this.state.selectedSites.size > 0) {
+      parts.push(`출처: ${Array.from(this.state.selectedSites).join(', ')}`);
+    } else {
+      parts.push('출처: 전체');
+    }
+
+    if (this.state.activeFilter === 'lg_only') parts.push('조건: LG 직접 언급');
+    else if (this.state.activeFilter === 'positive') parts.push('조건: 🟢 긍정');
+    else if (this.state.activeFilter === 'neutral') parts.push('조건: 🟡 중립');
+    else if (this.state.activeFilter === 'negative') parts.push('조건: 🔴 부정');
+    else if (this.state.activeFilter === 'competitors') {
+      if (this.state.selectedCompetitor !== 'all') {
+        parts.push(`조건: ⚔️ 경쟁사 언급 (${this.state.selectedCompetitor})`);
+      } else {
+        parts.push('조건: ⚔️ 경쟁사 언급 전체');
+      }
+    } else {
+      parts.push('조건: 전체');
+    }
+
+    if (this.state.searchFilter) {
+      parts.push(`검색어: "${this.state.searchFilter}"`);
+    }
+    return parts.join(' | ');
+  },
+
+  // 1. Excel 종합 리포트 다운로드 (다중 시트: 요약 + 필터링 + 원본)
+  downloadExcelReport() {
+    if (this.state.results.length === 0) {
       alert('다운로드할 수집 결과 데이터가 없습니다.');
       return;
     }
-    const filename = `scraped_voc_${this.state.country}_${this.state.product.replace(/\s+/g, '_')}.csv`;
+    const filtered = this.getFilteredResults();
+    const desc = this.getFilterDescription();
+    const xml = CsvUtils.generateExcelReport(
+      this.state.country,
+      this.state.product,
+      this.state.results,
+      filtered,
+      desc
+    );
+    const filename = `VOC_Intelligence_Report_${this.state.country}_${this.state.product.replace(/\s+/g, '_')}.xls`;
+    CsvUtils.downloadExcelBlob(xml, filename);
+  },
+
+  // 2. 현재 화면에 필터링된 결과만 CSV 다운로드
+  downloadFilteredCsv() {
+    const filtered = this.getFilteredResults();
+    if (filtered.length === 0) {
+      alert('현재 필터 조건에 해당하는 리뷰가 없습니다.');
+      return;
+    }
+    const filename = `voc_filtered_${this.state.country}_${this.state.product.replace(/\s+/g, '_')}.csv`;
+    CsvUtils.downloadFilteredCsv(this.state.country, this.state.product, filtered, filename);
+  },
+
+  // 3. 수집된 14개 필드 원본 CSV 전체 다운로드
+  downloadRawCsv() {
+    if (!this.state.rawCsvText) {
+      alert('다운로드할 수집 원본 데이터가 없습니다.');
+      return;
+    }
+    const filename = `voc_raw_${this.state.country}_${this.state.product.replace(/\s+/g, '_')}.csv`;
     CsvUtils.downloadCsvText(this.state.rawCsvText, filename);
+  },
+
+  // 하위 호환
+  downloadResultCsv() {
+    this.downloadExcelReport();
   },
 
   setFilter(filterKey) {
     this.state.activeFilter = filterKey;
+    if (filterKey !== 'competitors') {
+      this.state.selectedCompetitor = 'all';
+    }
+    this.renderResultsBody();
+  },
+
+  setCompetitorFilter(compName) {
+    this.state.activeFilter = 'competitors';
+    this.state.selectedCompetitor = compName || 'all';
+    this.renderResultsBody();
+  },
+
+  toggleAllSites() {
+    this.state.selectedSites.clear();
+    this.renderResultsBody();
+  },
+
+  toggleSiteFilter(siteName, isChecked) {
+    const allSiteNames = Array.from(new Set(this.state.results.map(r => r.site_name || '기타 출처')));
+    
+    if (this.state.selectedSites.size === 0) {
+      allSiteNames.forEach(s => this.state.selectedSites.add(s));
+    }
+
+    if (isChecked) {
+      this.state.selectedSites.add(siteName);
+      if (this.state.selectedSites.size >= allSiteNames.length) {
+        this.state.selectedSites.clear();
+      }
+    } else {
+      this.state.selectedSites.delete(siteName);
+    }
     this.renderResultsBody();
   },
 
@@ -234,16 +340,28 @@ const ResultsView = {
   getFilteredResults() {
     let items = this.state.results;
 
-    if (this.state.activeFilter === 'lg_only') {
-      items = items.filter(r => r.lg_mentioned);
-    } else if (this.state.activeFilter === 'negative') {
-      items = items.filter(r => r.ai_sentiment === 'NEGATIVE' || r.user_intent === 'COMPLAINT');
-    } else if (this.state.activeFilter === 'positive') {
-      items = items.filter(r => r.ai_sentiment === 'POSITIVE');
-    } else if (this.state.activeFilter === 'competitors') {
-      items = items.filter(r => r.competitors && r.competitors.length > 0);
+    // 1. 사이트(출처)별 체크 필터링
+    if (this.state.selectedSites.size > 0) {
+      items = items.filter(r => this.state.selectedSites.has(r.site_name || '기타 출처'));
     }
 
+    // 2. 주요 조건 필터링
+    if (this.state.activeFilter === 'lg_only') {
+      items = items.filter(r => r.lg_mentioned);
+    } else if (this.state.activeFilter === 'positive') {
+      items = items.filter(r => r.ai_sentiment === 'POSITIVE');
+    } else if (this.state.activeFilter === 'neutral') {
+      items = items.filter(r => r.ai_sentiment === 'NEUTRAL');
+    } else if (this.state.activeFilter === 'negative') {
+      items = items.filter(r => r.ai_sentiment === 'NEGATIVE' || r.user_intent === 'COMPLAINT');
+    } else if (this.state.activeFilter === 'competitors') {
+      items = items.filter(r => r.competitors && r.competitors.length > 0);
+      if (this.state.selectedCompetitor && this.state.selectedCompetitor !== 'all') {
+        items = items.filter(r => r.competitors && r.competitors.includes(this.state.selectedCompetitor));
+      }
+    }
+
+    // 3. 텍스트 검색 필터
     if (this.state.searchFilter) {
       const q = this.state.searchFilter.toLowerCase();
       items = items.filter(r => 
@@ -359,9 +477,15 @@ const ResultsView = {
             <span class="status-text">${CsvUtils.escapeHtml(this.state.statusMessage)}</span>
           </div>
 
-          <div class="action-buttons">
-            <button type="button" class="btn btn-outline" id="btn-download-results-csv" ${!hasResults ? 'disabled' : ''} onclick="ResultsView.downloadResultCsv()">
-              수집 결과 CSV 다운로드
+          <div class="action-buttons-group">
+            <button type="button" class="btn btn-primary btn-sm btn-report-excel" ${!hasResults ? 'disabled' : ''} onclick="ResultsView.downloadExcelReport()" title="분석 요약표, 필터링 내역, 원문이 각각 시트로 구성된 Excel 파일 다운로드">
+              📊 Excel 종합 리포트 다운로드 (다중 시트)
+            </button>
+            <button type="button" class="btn btn-outline btn-sm" ${!hasResults ? 'disabled' : ''} onclick="ResultsView.downloadFilteredCsv()" title="현재 화면에 필터링된 결과만 CSV로 다운로드">
+              📄 필터링 CSV
+            </button>
+            <button type="button" class="btn btn-outline btn-sm" ${!hasResults ? 'disabled' : ''} onclick="ResultsView.downloadRawCsv()" title="수집된 14개 필드 원본 CSV 전체 다운로드">
+              📑 원본 전체 CSV
             </button>
           </div>
         </div>
@@ -387,11 +511,35 @@ const ResultsView = {
 
     const totalCount = allItems.length;
     const lgCount = allItems.filter(r => r.lg_mentioned).length;
-    const negCount = allItems.filter(r => r.ai_sentiment === 'NEGATIVE' || r.user_intent === 'COMPLAINT').length;
     const posCount = allItems.filter(r => r.ai_sentiment === 'POSITIVE').length;
-    const compCount = allItems.filter(r => r.competitors && r.competitors.length > 0).length;
+    const neuCount = allItems.filter(r => r.ai_sentiment === 'NEUTRAL').length;
+    const negCount = allItems.filter(r => r.ai_sentiment === 'NEGATIVE' || r.user_intent === 'COMPLAINT').length;
+    const compTotalCount = allItems.filter(r => r.competitors && r.competitors.length > 0).length;
 
-    // 사이트별 그룹화
+    // 경쟁사별 카운트 추출
+    const competitorCounts = {};
+    allItems.forEach(r => {
+      if (r.competitors && Array.isArray(r.competitors)) {
+        r.competitors.forEach(c => {
+          if (c && c.trim()) {
+            const brand = c.trim();
+            competitorCounts[brand] = (competitorCounts[brand] || 0) + 1;
+          }
+        });
+      }
+    });
+    const competitorNames = Object.keys(competitorCounts).sort((a,b) => competitorCounts[b] - competitorCounts[a]);
+
+    // 사이트별 카운트 추출
+    const siteCounts = {};
+    allItems.forEach(r => {
+      const s = r.site_name || '기타 출처';
+      siteCounts[s] = (siteCounts[s] || 0) + 1;
+    });
+    const allSiteNames = Object.keys(siteCounts);
+    const isAllSitesActive = this.state.selectedSites.size === 0 || this.state.selectedSites.size === allSiteNames.length;
+
+    // 사이트별 그룹화 (필터링된 결과 기준)
     const siteGroups = {};
     filteredItems.forEach(item => {
       const sName = item.site_name || '기타 출처';
@@ -410,26 +558,72 @@ const ResultsView = {
     return `
       <!-- 1. 스마트 인사이트 필터 툴바 -->
       <div class="voc-filter-toolbar">
-        <div class="filter-tabs-group">
-          <button type="button" class="btn-voc-filter ${this.state.activeFilter === 'all' ? 'active' : ''}" onclick="ResultsView.setFilter('all')">
-            전체 <span class="filter-count">${totalCount}</span>
-          </button>
-          <button type="button" class="btn-voc-filter highlight-lg ${this.state.activeFilter === 'lg_only' ? 'active' : ''}" onclick="ResultsView.setFilter('lg_only')">
-            🔥 LG 직접 언급 <span class="filter-count">${lgCount}</span>
-          </button>
-          <button type="button" class="btn-voc-filter alert-neg ${this.state.activeFilter === 'negative' ? 'active' : ''}" onclick="ResultsView.setFilter('negative')">
-            ⚠️ 불만·품질 이슈 <span class="filter-count">${negCount}</span>
-          </button>
-          <button type="button" class="btn-voc-filter ${this.state.activeFilter === 'competitors' ? 'active' : ''}" onclick="ResultsView.setFilter('competitors')">
-            ⚔️ 경쟁사 비교 <span class="filter-count">${compCount}</span>
-          </button>
-          <button type="button" class="btn-voc-filter ${this.state.activeFilter === 'positive' ? 'active' : ''}" onclick="ResultsView.setFilter('positive')">
-            🟢 긍정 후기 <span class="filter-count">${posCount}</span>
-          </button>
+        <!-- 1행: 조건 탭 버튼 & 검색창 -->
+        <div class="filter-top-row">
+          <div class="filter-tabs-group">
+            <button type="button" class="btn-voc-filter ${this.state.activeFilter === 'all' ? 'active' : ''}" onclick="ResultsView.setFilter('all')">
+              전체 <span class="filter-count">${totalCount}</span>
+            </button>
+            <button type="button" class="btn-voc-filter highlight-lg ${this.state.activeFilter === 'lg_only' ? 'active' : ''}" onclick="ResultsView.setFilter('lg_only')">
+              🔥 LG 직접 언급 <span class="filter-count">${lgCount}</span>
+            </button>
+            <button type="button" class="btn-voc-filter filter-positive ${this.state.activeFilter === 'positive' ? 'active' : ''}" onclick="ResultsView.setFilter('positive')">
+              🟢 긍정 <span class="filter-count">${posCount}</span>
+            </button>
+            <button type="button" class="btn-voc-filter filter-neutral ${this.state.activeFilter === 'neutral' ? 'active' : ''}" onclick="ResultsView.setFilter('neutral')">
+              🟡 중립 <span class="filter-count">${neuCount}</span>
+            </button>
+            <button type="button" class="btn-voc-filter alert-neg ${this.state.activeFilter === 'negative' ? 'active' : ''}" onclick="ResultsView.setFilter('negative')">
+              🔴 부정 <span class="filter-count">${negCount}</span>
+            </button>
+            <button type="button" class="btn-voc-filter filter-competitor ${this.state.activeFilter === 'competitors' ? 'active' : ''}" onclick="ResultsView.setFilter('competitors')">
+              ⚔️ 경쟁사 언급 <span class="filter-count">${compTotalCount}</span>
+            </button>
+          </div>
+
+          <div class="filter-search-box">
+            <input type="text" class="input-text-sm" placeholder="요약, 태그, 키워드 검색..." value="${CsvUtils.escapeHtml(this.state.searchFilter)}" oninput="ResultsView.setSearchFilter(this.value)">
+          </div>
         </div>
 
-        <div class="filter-search-box">
-          <input type="text" class="input-text-sm" placeholder="요약, 태그, 키워드 검색..." value="${CsvUtils.escapeHtml(this.state.searchFilter)}" oninput="ResultsView.setSearchFilter(this.value)">
+        <!-- 2행: 경쟁사 개별 필터 서브 칩 (경쟁사 언급 탭 선택 시 또는 특정 경쟁사 필터링 중일 때) -->
+        ${(this.state.activeFilter === 'competitors' || this.state.selectedCompetitor !== 'all') ? `
+          <div class="competitor-subfilter-bar">
+            <span class="subfilter-label">⚔️ 언급된 경쟁사별 보기:</span>
+            <div class="competitor-chips-group">
+              <button type="button" class="btn-comp-chip ${this.state.selectedCompetitor === 'all' ? 'active' : ''}" onclick="ResultsView.setCompetitorFilter('all')">
+                전체 경쟁사 (${compTotalCount})
+              </button>
+              ${competitorNames.map(cName => `
+                <button type="button" class="btn-comp-chip ${this.state.selectedCompetitor === cName ? 'active' : ''}" onclick="ResultsView.setCompetitorFilter('${CsvUtils.escapeHtml(cName)}')">
+                  ${CsvUtils.escapeHtml(cName)} (${competitorCounts[cName]})
+                </button>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- 3행: 출처 사이트별 체크 필터 (수집된 전체 또는 개별 사이트 체크) -->
+        <div class="site-filter-bar">
+          <div class="site-filter-left">
+            <span class="site-filter-label">출처 사이트 필터:</span>
+            <button type="button" class="btn-site-all-toggle ${isAllSitesActive ? 'active' : ''}" onclick="ResultsView.toggleAllSites()">
+              전체 (${allSiteNames.length}개 사이트)
+            </button>
+          </div>
+          <div class="site-filter-checkboxes">
+            ${allSiteNames.map(sName => {
+              const isChecked = this.state.selectedSites.size === 0 || this.state.selectedSites.has(sName);
+              const count = siteCounts[sName] || 0;
+              return `
+                <label class="site-check-pill ${isChecked ? 'is-checked' : ''}">
+                  <input type="checkbox" class="site-native-check" ${isChecked ? 'checked' : ''} onchange="ResultsView.toggleSiteFilter('${CsvUtils.escapeHtml(sName)}', this.checked)">
+                  <span class="pill-sitename">${CsvUtils.escapeHtml(sName)}</span>
+                  <span class="pill-sitecount">${count}</span>
+                </label>
+              `;
+            }).join('')}
+          </div>
         </div>
       </div>
 
@@ -466,13 +660,13 @@ const ResultsView = {
           <div class="site-header-left">
             <span class="site-category-badge">${CsvUtils.escapeHtml(group.category)}</span>
             <h4 class="site-title">${CsvUtils.escapeHtml(group.siteName)}</h4>
-            <span class="site-count-pill">${group.items.length}건 수집됨</span>
+            <span class="site-count-pill">${group.items.length}건 표시됨</span>
           </div>
 
           <div class="site-header-right">
             <div class="sentiment-mini-stats">
               <span class="sentiment-chip pos" title="긍정">🟢 ${pos}</span>
-              <span class="sentiment-chip neu" title="중립">⚪ ${neu}</span>
+              <span class="sentiment-chip neu" title="중립">🟡 ${neu}</span>
               <span class="sentiment-chip neg" title="부정">🔴 ${neg}</span>
             </div>
             <button type="button" class="btn-accordion-toggle">
@@ -500,18 +694,38 @@ const ResultsView = {
   renderReviewCard(item) {
     const isRawExpanded = this.state.expandedReviewIds.has(item.id);
     
-    let sentimentBadge = '<span class="review-badge badge-neutral">중립</span>';
+    // 1. 감성 뱃지 (원 이모티콘 🟢, 🟡, 🔴 일관 적용)
+    let sentimentBadge = '<span class="review-badge badge-neutral">🟡 중립</span>';
     if (item.ai_sentiment === 'POSITIVE') {
-      sentimentBadge = '<span class="review-badge badge-positive">🟢 긍정 (EXPERIENCE)</span>';
+      sentimentBadge = '<span class="review-badge badge-positive">🟢 긍정</span>';
     } else if (item.ai_sentiment === 'NEGATIVE') {
-      sentimentBadge = '<span class="review-badge badge-negative">🔴 부정 (COMPLAINT)</span>';
+      sentimentBadge = '<span class="review-badge badge-negative">🔴 부정</span>';
     }
+
+    // 2. 고객 의도 뱃지 (따로 완벽 분리)
+    let intentText = item.user_intent || '기타';
+    let intentClass = 'badge-intent-neutral';
+    if (item.user_intent === 'EXPERIENCE') {
+      intentText = '실사용 경험';
+      intentClass = 'badge-intent-exp';
+    } else if (item.user_intent === 'COMPLAINT') {
+      intentText = '불만/품질 이슈';
+      intentClass = 'badge-intent-complaint';
+    } else if (item.user_intent === 'INQUIRY') {
+      intentText = '구매 문의';
+      intentClass = 'badge-intent-inquiry';
+    } else if (item.user_intent === 'COMPARISON') {
+      intentText = '타사 비교/선택';
+      intentClass = 'badge-intent-compare';
+    }
+    const intentBadge = `<span class="review-badge badge-intent ${intentClass}">${intentText}</span>`;
 
     return `
       <div class="voc-review-card ${item.lg_mentioned ? 'has-lg-mention' : ''}" id="rev-${item.id}">
         <div class="review-card-top">
           <div class="review-badges-row">
             ${sentimentBadge}
+            ${intentBadge}
             ${item.lg_mentioned ? `<span class="review-badge badge-lg-highlight">🌟 LG 직접 언급</span>` : ''}
             ${item.competitors && item.competitors.length > 0 ? `<span class="review-badge badge-competitor">⚔️ 타사: ${item.competitors.join(', ')}</span>` : ''}
             ${item.topic_tags ? item.topic_tags.map(t => `<span class="review-tag">#${CsvUtils.escapeHtml(t)}</span>`).join('') : ''}

@@ -186,3 +186,8 @@ const CsvUtils = {
       .replace(/'/g, '&#39;');
   }
 };
+
+if (typeof window !== 'undefined') {
+  window.CsvUtils = CsvUtils;
+}
+

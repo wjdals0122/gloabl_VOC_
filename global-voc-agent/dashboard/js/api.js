@@ -105,5 +105,23 @@ const VocApiClient = {
       console.error('[API Client] collectSelectedSources 오류:', error);
       throw error;
     }
+  },
+
+  // 하위 호환 및 편의용 호출 인터페이스
+  async collectVoc(payloadOrCountry, product, selectedSources) {
+    if (typeof payloadOrCountry === 'object' && payloadOrCountry !== null) {
+      const country = payloadOrCountry.country;
+      const prod = payloadOrCountry.product;
+      const sources = payloadOrCountry.selected_sources || payloadOrCountry.selectedSources || [];
+      return this.collectSelectedSources(country, prod, sources);
+    }
+    return this.collectSelectedSources(payloadOrCountry, product, selectedSources);
   }
 };
+
+// 브라우저 전역 객체 바인딩 (VocApiClient 및 ApiClient 둘 다 지원)
+if (typeof window !== 'undefined') {
+  window.VocApiClient = VocApiClient;
+  window.ApiClient = VocApiClient;
+}
+

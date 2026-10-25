@@ -155,3 +155,8 @@ const MockData = {
     return header + rows.join('\n');
   }
 };
+
+if (typeof window !== 'undefined') {
+  window.MockData = MockData;
+}
+

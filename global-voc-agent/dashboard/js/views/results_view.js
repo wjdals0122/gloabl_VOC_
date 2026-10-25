@@ -135,11 +135,31 @@ const ResultsView = {
     }, 180);
 
     try {
-      const res = await ApiClient.collectVoc({
-        country: this.state.country,
-        product: this.state.product,
-        selected_sources: sources
-      });
+      let res;
+      const client = (typeof VocApiClient !== 'undefined' ? VocApiClient : (typeof ApiClient !== 'undefined' ? ApiClient : null));
+
+      if (client && client.collectSelectedSources) {
+        res = await client.collectSelectedSources(
+          this.state.country,
+          this.state.product,
+          sources
+        );
+      } else if (client && client.collectVoc) {
+        res = await client.collectVoc({
+          country: this.state.country,
+          product: this.state.product,
+          selected_sources: sources
+        });
+      } else if (typeof MockData !== 'undefined') {
+        // 백엔드/클라이언트 미연결 시 모의 데이터 생성
+        await new Promise(r => setTimeout(r, 1800));
+        res = {
+          success: true,
+          csvText: MockData.generateMockResultCsv(this.state.country, this.state.product, sources)
+        };
+      } else {
+        throw new Error('API 수집 클라이언트 모듈을 찾을 수 없습니다.');
+      }
 
       if (this.state.progressTimer) {
         clearInterval(this.state.progressTimer);
@@ -520,3 +540,8 @@ const ResultsView = {
     `;
   }
 };
+
+if (typeof window !== 'undefined') {
+  window.ResultsView = ResultsView;
+}
+

@@ -1435,84 +1435,377 @@ body {
   width: 250px;
 }
 
-/* VOC 수집 카드 아코디언 */
-.voc-card-list {
+/* ==========================================================================
+   5. 수집 결과 뷰: 스마트 필터 툴바 & 사이트별 그룹 아코디언
+   ========================================================================== */
+.voc-filter-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+  background-color: #ffffff;
+  padding: 12px 18px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.filter-tabs-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-voc-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  background-color: #f8fafc;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.btn-voc-filter:hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+.btn-voc-filter.active {
+  background-color: #1e293b;
+  color: #ffffff;
+  border-color: #1e293b;
+}
+
+.btn-voc-filter.highlight-lg.active {
+  background-color: #ab1736;
+  border-color: #ab1736;
+  color: #ffffff;
+}
+
+.btn-voc-filter.alert-neg.active {
+  background-color: #e11d48;
+  border-color: #e11d48;
+  color: #ffffff;
+}
+
+.btn-voc-filter .filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background-color: rgba(0, 0, 0, 0.08);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.btn-voc-filter.active .filter-count {
+  background-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+/* 사이트별 그룹 아코디언 */
+.site-accordion-container {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 18px;
 }
 
-.voc-card {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
+.site-group-card {
+  background-color: #ffffff;
+  border: 1.5px solid #e2e8f0;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: var(--shadow-card);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  transition: border-color 0.2s ease;
 }
 
-.voc-card-header {
+.site-group-card:hover {
+  border-color: #cbd5e1;
+}
+
+.site-group-header {
   padding: 16px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: var(--bg-surface);
-  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+  background-color: #ffffff;
+  user-select: none;
   flex-wrap: wrap;
   gap: 12px;
 }
 
-.header-title-box {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.voc-site-name {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text-main);
-}
-
-.header-action-box {
+.site-header-left {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
-.content-length-tag {
+.site-category-badge {
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 4px;
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+.site-title {
+  font-size: 16.5px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  font-family: 'LG smart UI', 'LG Smart UI', 'SUIT Variable', 'SUIT', sans-serif;
+}
+
+.site-count-pill {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
+  background-color: #f8fafc;
+  padding: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.site-header-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.sentiment-mini-stats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sentiment-chip {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.sentiment-chip.pos {
+  background-color: #ecfdf5;
+  color: #059669;
+}
+
+.sentiment-chip.neu {
+  background-color: #f8fafc;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+.sentiment-chip.neg {
+  background-color: #fef2f2;
+  color: #e11d48;
+}
+
+.btn-accordion-toggle {
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.btn-accordion-toggle:hover {
+  background-color: #f1f5f9;
+}
+
+/* AI 출처 종합 1줄 요약 바 */
+.site-summary-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background-color: #f8fafc;
+  border-top: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f1f5f9;
   font-size: 13px;
-  color: var(--text-muted);
+  color: #334155;
 }
 
-.voc-card-content.collapsed {
+.summary-bulb {
+  font-size: 15px;
+}
+
+.summary-text strong {
+  color: #0f172a;
+}
+
+/* 사이트별 개별 리뷰 리스트 영역 */
+.site-reviews-body.closed {
   display: none;
 }
 
-.voc-card-content {
-  padding: 18px 20px;
-  background-color: var(--bg-code-box);
-  max-height: 450px;
-  overflow-y: auto;
+.site-reviews-body.open {
+  display: block;
+  padding: 16px 20px 20px;
+  background-color: #fafbfc;
 }
 
-.voc-pre {
-  font-family: 'JetBrains Mono', 'SUIT Variable', 'SUIT', monospace;
-  font-size: 13.5px;
-  color: var(--text-code);
-  white-space: pre-wrap;
-  word-break: break-word;
-  line-height: 1.6;
+.review-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.voc-card-footer {
-  padding: 12px 20px;
+/* 개별 리뷰 카드 */
+.voc-review-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  transition: all 0.18s ease;
+}
+
+.voc-review-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
+}
+
+.voc-review-card.has-lg-mention {
+  border-left: 3.5px solid #ab1736;
+}
+
+.review-card-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: var(--bg-surface-elevated);
-  border-top: 1px solid var(--border-subtle);
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.review-badges-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.review-badge {
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.review-badge.badge-positive {
+  background-color: #ecfdf5;
+  color: #059669;
+}
+
+.review-badge.badge-negative {
+  background-color: #fef2f2;
+  color: #e11d48;
+}
+
+.review-badge.badge-neutral {
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+.review-badge.badge-lg-highlight {
+  background-color: #ab1736;
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.review-badge.badge-competitor {
+  background-color: #fef3c7;
+  color: #b45309;
+}
+
+.review-tag {
+  font-size: 11.5px;
+  color: #64748b;
+  font-weight: 500;
+  background-color: #f8fafc;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+}
+
+.review-date {
+  font-size: 11.5px;
+  color: #94a3b8;
+}
+
+.review-summary-area {
+  margin: 6px 0 10px;
+}
+
+.review-kr-summary {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.5;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.review-card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.btn-toggle-raw {
+  background: none;
+  border: none;
+  color: #64748b;
   font-size: 12px;
-  color: var(--text-muted);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.btn-toggle-raw:hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+.review-raw-box {
+  margin-top: 10px;
+  padding: 12px 14px;
+  background-color: #f8fafc;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.review-raw-pre {
+  margin: 0;
+  font-family: 'JetBrains Mono', 'SUIT Variable', 'SUIT', monospace;
+  font-size: 12.5px;
+  color: #334155;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
 }
 
 /* ==========================================================================

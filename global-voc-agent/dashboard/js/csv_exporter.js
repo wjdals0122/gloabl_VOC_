@@ -125,16 +125,53 @@ const CsvUtils = {
         obj[h] = cols[idx] !== undefined ? cols[idx] : '';
       });
 
+      let topicTags = [];
+      try {
+        if (obj['topic_tags']) {
+          topicTags = JSON.parse(obj['topic_tags']);
+          if (!Array.isArray(topicTags)) topicTags = [String(topicTags)];
+        }
+      } catch (e) { topicTags = []; }
+
+      let competitors = [];
+      try {
+        if (obj['competitors']) {
+          competitors = JSON.parse(obj['competitors']);
+          if (!Array.isArray(competitors)) competitors = [String(competitors)];
+        }
+      } catch (e) { competitors = []; }
+
+      let aiMeta = {};
+      try {
+        if (obj['ai_metadata']) {
+          aiMeta = JSON.parse(obj['ai_metadata']);
+        }
+      } catch (e) { aiMeta = {}; }
+
+      const rawContent = obj['content'] || obj['voc_content'] || '';
+      const isLgMentioned = aiMeta.lg_mentioned === true || /lg|엘지|washtower|워시타워/i.test(rawContent);
+
       return {
-        id: `voc_row_${rowIndex + 1}`,
-        country: obj['country'] || '',
+        id: obj['voc_id'] || `voc_row_${rowIndex + 1}`,
+        voc_id: obj['voc_id'] || `voc_row_${rowIndex + 1}`,
+        country: obj['country'] || 'US',
         product: obj['product'] || '',
-        site_name: obj['site_name'] || `출처 ${rowIndex + 1}`,
+        site_name: obj['source_site'] || obj['site_name'] || `출처 ${rowIndex + 1}`,
+        category: obj['category'] || 'Community/Forum',
+        content_type: obj['content_type'] || 'POST',
+        content: rawContent,
+        voc_content: rawContent,
+        kr_summary: obj['kr_summary'] || '',
+        ai_sentiment: (obj['ai_sentiment'] || 'NEUTRAL').toUpperCase(),
+        user_intent: (obj['user_intent'] || 'EXPERIENCE').toUpperCase(),
+        topic_tags: topicTags,
+        competitors: competitors,
+        is_urgent: obj['is_urgent'] === 'true' || obj['is_urgent'] === true,
+        lg_mentioned: isLgMentioned,
+        rating: obj['rating'] ? parseFloat(obj['rating']) : null,
+        created_at: obj['created_at'] || '',
         source_url: obj['source_url'] || obj['url'] || '',
-        proxy_type: obj['proxy_type'] || 'datacenter',
-        extraction_type: obj['extraction_type'] || 'markdown',
-        status_code: parseInt(obj['status_code'], 10) || 200,
-        voc_content: obj['voc_content'] || ''
+        status_code: parseInt(obj['status_code'], 10) || 200
       };
     });
   },

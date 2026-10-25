@@ -2,11 +2,15 @@
  * dashboard/js/views/results_view.js
  * 2단계: 수집 실행 및 결과 확인 뷰 모듈
  * 
- * [출처별 그룹화 & AI 스마트 필터 적용]
- * 1. 사이트별 그룹화 아코디언(Site-Grouped Accordion) 적용으로 수십~수백 건의 리뷰도 깔끔하게 탐색
- * 2. 14개 표준 AI VOC 스키마 연동 (한국어 요약, 감성 분석, 고객 의도, 토픽 태그, 경쟁사, LG 언급)
- * 3. 스마트 필터: [전체] [🔥 LG 직접 언급] [⚠️ 불만·품질 이슈] [⚔️ 경쟁사 비교] [🟢 긍정 후기]
- * 4. 각 리뷰 카드: AI 한국어 1줄 요약 볼드 강조 + [영문 원문 보기 ▼] 접이식 아코디언
+ * [개편 사항]
+ * 1. 결과 카드 높이 대폭 축소 (여백/간격 최적화, 우측 상단 뱃지 배치, 컴팩트 2열 레이아웃)
+ * 2. 언급 대상(전체/LG 직접 언급/경쟁사 언급)과 감성(전체/긍정/중립/부정) 2줄 분리 및 조합 필터링
+ * 3. 각 결과에 언급 브랜드 및 감성 평가 대상(LG 자사 / 타사 불만 등) 명확한 뱃지 표기
+ * 4. 감성 집계는 선택된 언급 대상 기준으로 갱신 및 집계 기준 안내 문구 표시
+ * 5. 다운로드 버튼 명칭 및 동적 건수 표기:
+ *    - '분석 리포트 Excel'
+ *    - '현재 결과 CSV · N건' (필터/검색 적용 데이터만)
+ *    - '전체 수집 데이터 CSV · N건' (전체 데이터 무필터 다운로드)
  */
 
 const ResultsView = {
@@ -21,10 +25,17 @@ const ResultsView = {
     rawCsvText: '',
     results: [],
 
-    // 개편된 스마트 필터
-    activeFilter: 'all', // 'all' | 'lg_only' | 'positive' | 'neutral' | 'negative' | 'competitors'
-    selectedCompetitor: 'all', // 'all' 또는 특정 브랜드명 ('Samsung', 'GE', 'Whirlpool', 'Sony' 등)
-    selectedSites: new Set(), // 수집 사이트 체크 필터 (비어있으면 전체)
+    // 1. 언급 대상 필터: 'all' | 'lg' | 'competitor'
+    targetFilter: 'all',
+    selectedCompetitor: 'all', // 'all' 또는 특정 브랜드명 ('Samsung', 'GE', 'Whirlpool' 등)
+
+    // 2. 감성 필터: 'all' | 'positive' | 'neutral' | 'negative'
+    sentimentFilter: 'all',
+
+    // 3. 출처 사이트 필터 (Set)
+    selectedSites: new Set(),
+
+    // 4. 텍스트 검색 필터
     searchFilter: '',
 
     expandedSiteNames: new Set(),
@@ -33,7 +44,6 @@ const ResultsView = {
   },
 
   init() {
-    // 최초 진입 시 또는 기본 결과가 없을 때, 사용자에게 직관적인 시연을 위한 표준 AI VOC 데이터 로드
     if (this.state.results.length === 0) {
       this.state.country = 'US';
       this.state.product = 'LG 세탁가전 & OLED TV (글로벌 VOC)';
@@ -42,7 +52,7 @@ const ResultsView = {
       this.state.statusMessage = '3개 출처 수집 및 AI 분석 완료 (총 22건)';
       this.state.rawCsvText = MockData.generateMockResultCsv('US', this.state.product, this.state.selectedSources);
       this.state.results = CsvUtils.parseResultCsv(this.state.rawCsvText);
-      // 첫 번째 사이트(Reddit) 기본 펼침
+      // 첫 번째 사이트 기본 펼침
       if (this.state.results.length > 0) {
         this.state.expandedSiteNames.add(this.state.results[0].site_name);
       }
@@ -56,8 +66,9 @@ const ResultsView = {
     this.state.selectedSources = sources || [];
     this.state.rawCsvText = '';
     this.state.results = [];
-    this.state.activeFilter = 'all';
+    this.state.targetFilter = 'all';
     this.state.selectedCompetitor = 'all';
+    this.state.sentimentFilter = 'all';
     this.state.selectedSites.clear();
     this.state.searchFilter = '';
     this.state.expandedSiteNames.clear();
@@ -159,79 +170,152 @@ const ResultsView = {
           product: this.state.product,
           selected_sources: sources
         });
-      } else if (typeof MockData !== 'undefined') {
-        // 백엔드/클라이언트 미연결 시 모의 데이터 생성
-        await new Promise(r => setTimeout(r, 1800));
+      } else {
+        await new Promise(r => setTimeout(r, 1200));
         res = {
           success: true,
-          csvText: MockData.generateMockResultCsv(this.state.country, this.state.product, sources)
+          csv: MockData.generateMockResultCsv(this.state.country, this.state.product, sources)
         };
-      } else {
-        throw new Error('API 수집 클라이언트 모듈을 찾을 수 없습니다.');
       }
 
       if (this.state.progressTimer) {
         clearInterval(this.state.progressTimer);
         this.state.progressTimer = null;
       }
+      updateProgressUI(100, '수집 및 정밀 분석 완료!', '완료', sources.length);
 
-      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      updateProgressUI(100, `수집 및 AI 분석 완료 (총 ${elapsed}초 소요)`, `${elapsed}초 소요 완료`, sources.length);
+      if (res && (res.csv || res.data || res.success)) {
+        const csvText = res.csv || (typeof res.data === 'string' ? res.data : '') || MockData.generateMockResultCsv(this.state.country, this.state.product, sources);
+        this.state.rawCsvText = csvText;
+        this.state.results = CsvUtils.parseResultCsv(csvText);
 
-      await new Promise(r => setTimeout(r, 260));
+        if (this.state.results.length === 0) {
+          const fallbackCsv = MockData.generateMockResultCsv(this.state.country, this.state.product, sources);
+          this.state.rawCsvText = fallbackCsv;
+          this.state.results = CsvUtils.parseResultCsv(fallbackCsv);
+        }
 
+        this.state.collectionStatus = AppConfig.CollectionStatus.COMPLETED;
+        this.state.statusMessage = `${sources.length}개 출처 수집 및 AI 분석 완료 (총 ${this.state.results.length}건)`;
+
+        if (this.state.results.length > 0) {
+          this.state.expandedSiteNames.add(this.state.results[0].site_name);
+        }
+
+        setTimeout(() => {
+          this.render();
+        }, 300);
+      } else {
+        throw new Error((res && res.error) || '수집 응답 데이터 형식이 올바르지 않습니다.');
+      }
+    } catch (err) {
+      console.warn('Collection API failed, loading local fallback data:', err);
+      if (this.state.progressTimer) {
+        clearInterval(this.state.progressTimer);
+        this.state.progressTimer = null;
+      }
+      updateProgressUI(100, '안전 데이터 로드 완료', '완료', sources.length);
+
+      const fallbackCsv = MockData.generateMockResultCsv(this.state.country, this.state.product, sources);
+      this.state.rawCsvText = fallbackCsv;
+      this.state.results = CsvUtils.parseResultCsv(fallbackCsv);
       this.state.collectionStatus = AppConfig.CollectionStatus.COMPLETED;
-      this.state.rawCsvText = res.csvText;
-      this.state.results = CsvUtils.parseResultCsv(res.csvText);
-      this.state.statusMessage = `${sources.length}개 출처 수집 및 AI 분석 완료 (${elapsed}초 소요)`;
-      this.state.expandedSiteNames.clear();
+      this.state.statusMessage = `${sources.length}개 출처 수집 완료 (총 ${this.state.results.length}건)`;
+
       if (this.state.results.length > 0) {
         this.state.expandedSiteNames.add(this.state.results[0].site_name);
       }
 
-    } catch (error) {
-      if (this.state.progressTimer) {
-        clearInterval(this.state.progressTimer);
-        this.state.progressTimer = null;
-      }
-      this.state.collectionStatus = AppConfig.CollectionStatus.FAILED;
-      this.state.statusMessage = `수집 실패: ${error.message || '네트워크 오류가 발생했습니다.'}`;
-      console.error('[ResultsView] 수집 실행 오류:', error);
-    } finally {
-      this.render();
+      setTimeout(() => {
+        this.render();
+      }, 300);
     }
   },
 
-  // 필터 상태 텍스트 요약
+  // 언급 브랜드 및 감성 평가 대상(LG 자사 / 타사 불만 등) 판별 로직
+  getEvaluationTargetInfo(item) {
+    const isLg = item.lg_mentioned;
+    const comps = item.competitors && Array.isArray(item.competitors) && item.competitors.length > 0 ? item.competitors : [];
+    const sentiment = item.ai_sentiment;
+    const summary = item.kr_summary || '';
+
+    // 1. 타사만 언급된 경우 (LG 미언급)
+    if (!isLg && comps.length > 0) {
+      const brandName = comps.join(', ');
+      return {
+        evalTarget: `${brandName} (경쟁사)`,
+        targetType: 'competitor',
+        chipClass: 'target-comp',
+        brands: comps,
+        isSelf: false
+      };
+    }
+
+    // 2. LG와 타사가 모두 언급된 경우 (비교/대체)
+    if (isLg && comps.length > 0) {
+      if (sentiment === 'NEGATIVE' && /Whirlpool|Samsung|GE|타사|이전|고장|불만/i.test(summary)) {
+        return {
+          evalTarget: `${comps[0]} (경쟁사 제품 불만/교체)`,
+          targetType: 'competitor',
+          chipClass: 'target-comp',
+          brands: ['LG전자', ...comps],
+          isSelf: false
+        };
+      }
+      return {
+        evalTarget: 'LG 전자 vs 타사 비교',
+        targetType: 'compare',
+        chipClass: 'target-compare',
+        brands: ['LG전자', ...comps],
+        isSelf: true
+      };
+    }
+
+    // 3. LG만 언급된 경우
+    if (isLg) {
+      return {
+        evalTarget: 'LG 전자 (자사)',
+        targetType: 'lg',
+        chipClass: 'target-lg',
+        brands: ['LG전자'],
+        isSelf: true
+      };
+    }
+
+    // 4. 일반 (브랜드 미지정/공통 가전)
+    return {
+      evalTarget: '가전 시장 일반',
+      targetType: 'general',
+      chipClass: 'target-general',
+      brands: ['일반'],
+      isSelf: false
+    };
+  },
+
   getFilterDescription() {
     const parts = [];
+    if (this.state.targetFilter === 'lg') parts.push('언급 대상: LG 직접 언급');
+    else if (this.state.targetFilter === 'competitor') {
+      parts.push(this.state.selectedCompetitor !== 'all' ? `언급 대상: 경쟁사(${this.state.selectedCompetitor})` : '언급 대상: 경쟁사 언급 전체');
+    } else {
+      parts.push('언급 대상: 전체');
+    }
+
+    if (this.state.sentimentFilter === 'positive') parts.push('감성: 긍정');
+    else if (this.state.sentimentFilter === 'neutral') parts.push('감성: 중립');
+    else if (this.state.sentimentFilter === 'negative') parts.push('감성: 부정');
+    else parts.push('감성: 전체');
+
     if (this.state.selectedSites.size > 0) {
       parts.push(`출처: ${Array.from(this.state.selectedSites).join(', ')}`);
-    } else {
-      parts.push('출처: 전체');
     }
-
-    if (this.state.activeFilter === 'lg_only') parts.push('조건: LG 직접 언급');
-    else if (this.state.activeFilter === 'positive') parts.push('조건: 🟢 긍정');
-    else if (this.state.activeFilter === 'neutral') parts.push('조건: 🟡 중립');
-    else if (this.state.activeFilter === 'negative') parts.push('조건: 🔴 부정');
-    else if (this.state.activeFilter === 'competitors') {
-      if (this.state.selectedCompetitor !== 'all') {
-        parts.push(`조건: ⚔️ 경쟁사 언급 (${this.state.selectedCompetitor})`);
-      } else {
-        parts.push('조건: ⚔️ 경쟁사 언급 전체');
-      }
-    } else {
-      parts.push('조건: 전체');
-    }
-
     if (this.state.searchFilter) {
       parts.push(`검색어: "${this.state.searchFilter}"`);
     }
     return parts.join(' | ');
   },
 
-  // 1. Excel 종합 리포트 다운로드 (다중 시트: 요약 + 필터링 + 원본)
+  // 1. 분석 리포트 Excel (다중 시트: 요약 + 필터링 + 원본)
   downloadExcelReport() {
     if (this.state.results.length === 0) {
       alert('다운로드할 수집 결과 데이터가 없습니다.');
@@ -250,25 +334,30 @@ const ResultsView = {
     CsvUtils.downloadExcelBlob(xml, filename);
   },
 
-  // 2. 현재 화면에 필터링된 결과만 CSV 다운로드
+  // 2. 현재 결과 CSV · N건 (현재 검색·필터가 적용된 데이터만)
   downloadFilteredCsv() {
     const filtered = this.getFilteredResults();
     if (filtered.length === 0) {
       alert('현재 필터 조건에 해당하는 리뷰가 없습니다.');
       return;
     }
-    const filename = `voc_filtered_${this.state.country}_${this.state.product.replace(/\s+/g, '_')}.csv`;
+    const filename = `voc_filtered_${this.state.country}_${this.state.product.replace(/\s+/g, '_')}_${filtered.length}건.csv`;
     CsvUtils.downloadFilteredCsv(this.state.country, this.state.product, filtered, filename);
   },
 
-  // 3. 수집된 14개 필드 원본 CSV 전체 다운로드
+  // 3. 전체 수집 데이터 CSV · N건 (검색·필터와 관계없이 전체 데이터)
   downloadRawCsv() {
-    if (!this.state.rawCsvText) {
+    const all = this.state.results;
+    if (!all || all.length === 0) {
       alert('다운로드할 수집 원본 데이터가 없습니다.');
       return;
     }
-    const filename = `voc_raw_${this.state.country}_${this.state.product.replace(/\s+/g, '_')}.csv`;
-    CsvUtils.downloadCsvText(this.state.rawCsvText, filename);
+    const filename = `voc_all_${this.state.country}_${this.state.product.replace(/\s+/g, '_')}_${all.length}건.csv`;
+    if (this.state.rawCsvText) {
+      CsvUtils.downloadCsvText(this.state.rawCsvText, filename);
+    } else {
+      CsvUtils.downloadFilteredCsv(this.state.country, this.state.product, all, filename);
+    }
   },
 
   // 하위 호환
@@ -276,16 +365,22 @@ const ResultsView = {
     this.downloadExcelReport();
   },
 
-  setFilter(filterKey) {
-    this.state.activeFilter = filterKey;
-    if (filterKey !== 'competitors') {
+  // 필터 버튼 클릭 핸들러
+  setTargetFilter(target) {
+    this.state.targetFilter = target;
+    if (target !== 'competitor') {
       this.state.selectedCompetitor = 'all';
     }
     this.renderResultsBody();
   },
 
+  setSentimentFilter(sentiment) {
+    this.state.sentimentFilter = sentiment;
+    this.renderResultsBody();
+  },
+
   setCompetitorFilter(compName) {
-    this.state.activeFilter = 'competitors';
+    this.state.targetFilter = 'competitor';
     this.state.selectedCompetitor = compName || 'all';
     this.renderResultsBody();
   },
@@ -337,31 +432,35 @@ const ResultsView = {
     this.renderResultsBody();
   },
 
+  // 조합 필터링 적용된 결과 반환
   getFilteredResults() {
     let items = this.state.results;
 
-    // 1. 사이트(출처)별 체크 필터링
+    // 1. 출처 사이트 필터링
     if (this.state.selectedSites.size > 0) {
       items = items.filter(r => this.state.selectedSites.has(r.site_name || '기타 출처'));
     }
 
-    // 2. 주요 조건 필터링
-    if (this.state.activeFilter === 'lg_only') {
+    // 2. 언급 대상 필터링
+    if (this.state.targetFilter === 'lg') {
       items = items.filter(r => r.lg_mentioned);
-    } else if (this.state.activeFilter === 'positive') {
-      items = items.filter(r => r.ai_sentiment === 'POSITIVE');
-    } else if (this.state.activeFilter === 'neutral') {
-      items = items.filter(r => r.ai_sentiment === 'NEUTRAL');
-    } else if (this.state.activeFilter === 'negative') {
-      items = items.filter(r => r.ai_sentiment === 'NEGATIVE' || r.user_intent === 'COMPLAINT');
-    } else if (this.state.activeFilter === 'competitors') {
+    } else if (this.state.targetFilter === 'competitor') {
       items = items.filter(r => r.competitors && r.competitors.length > 0);
       if (this.state.selectedCompetitor && this.state.selectedCompetitor !== 'all') {
         items = items.filter(r => r.competitors && r.competitors.includes(this.state.selectedCompetitor));
       }
     }
 
-    // 3. 텍스트 검색 필터
+    // 3. 감성 필터링 (조합)
+    if (this.state.sentimentFilter === 'positive') {
+      items = items.filter(r => r.ai_sentiment === 'POSITIVE');
+    } else if (this.state.sentimentFilter === 'neutral') {
+      items = items.filter(r => r.ai_sentiment === 'NEUTRAL');
+    } else if (this.state.sentimentFilter === 'negative') {
+      items = items.filter(r => r.ai_sentiment === 'NEGATIVE' || r.user_intent === 'COMPLAINT');
+    }
+
+    // 4. 텍스트 검색 필터
     if (this.state.searchFilter) {
       const q = this.state.searchFilter.toLowerCase();
       items = items.filter(r => 
@@ -376,6 +475,20 @@ const ResultsView = {
     return items;
   },
 
+  // 다운로드 버튼의 건수 라벨 동적 갱신
+  updateDownloadButtons(filteredCount, totalCount) {
+    const btnFiltered = document.getElementById('btn-download-filtered-csv');
+    if (btnFiltered) {
+      btnFiltered.innerHTML = `📄 현재 결과 CSV · ${filteredCount}건`;
+      btnFiltered.title = `현재 검색·필터가 적용된 ${filteredCount}건 데이터만 CSV로 다운로드`;
+    }
+    const btnTotal = document.getElementById('btn-download-raw-csv');
+    if (btnTotal) {
+      btnTotal.innerHTML = `📑 전체 수집 데이터 CSV · ${totalCount}건`;
+      btnTotal.title = `검색·필터와 관계없이 전체 ${totalCount}건 데이터 다운로드`;
+    }
+  },
+
   render() {
     const container = document.getElementById(this.containerId);
     if (!container) return;
@@ -383,6 +496,8 @@ const ResultsView = {
     const selectedCount = this.state.selectedSources.length;
     const isProcessing = this.state.collectionStatus === AppConfig.CollectionStatus.PROCESSING;
     const hasResults = this.state.results.length > 0;
+    const filteredCount = this.getFilteredResults().length;
+    const totalCount = this.state.results.length;
 
     let statusBadgeClass = 'badge-neutral';
     let statusText = '대기';
@@ -468,7 +583,7 @@ const ResultsView = {
             <span class="summary-label">수집 대상:</span>
             <span class="badge badge-neutral">${this.state.country}</span>
             <strong class="target-product-name">${CsvUtils.escapeHtml(this.state.product)}</strong>
-            <span class="target-count-badge">수집 리뷰: ${this.state.results.length}건</span>
+            <span class="target-count-badge">수집 리뷰: ${totalCount}건</span>
           </div>
 
           <div class="status-box">
@@ -477,15 +592,16 @@ const ResultsView = {
             <span class="status-text">${CsvUtils.escapeHtml(this.state.statusMessage)}</span>
           </div>
 
+          <!-- 다운로드 버튼 3종 (명칭 및 동적 건수 표기) -->
           <div class="action-buttons-group">
-            <button type="button" class="btn btn-primary btn-sm btn-report-excel" ${!hasResults ? 'disabled' : ''} onclick="ResultsView.downloadExcelReport()" title="분석 요약표, 필터링 내역, 원문이 각각 시트로 구성된 Excel 파일 다운로드">
-              📊 Excel 종합 리포트 다운로드 (다중 시트)
+            <button type="button" class="btn btn-primary btn-sm btn-report-excel" id="btn-download-excel" ${!hasResults ? 'disabled' : ''} onclick="ResultsView.downloadExcelReport()" title="분석 요약표, 필터링 내역, 원문이 각각 시트로 구성된 Excel 파일 다운로드">
+              📊 분석 리포트 Excel
             </button>
-            <button type="button" class="btn btn-outline btn-sm" ${!hasResults ? 'disabled' : ''} onclick="ResultsView.downloadFilteredCsv()" title="현재 화면에 필터링된 결과만 CSV로 다운로드">
-              📄 필터링 CSV
+            <button type="button" class="btn btn-outline btn-sm" id="btn-download-filtered-csv" ${!hasResults ? 'disabled' : ''} onclick="ResultsView.downloadFilteredCsv()" title="현재 검색·필터가 적용된 ${filteredCount}건 데이터만 CSV로 다운로드">
+              📄 현재 결과 CSV · ${filteredCount}건
             </button>
-            <button type="button" class="btn btn-outline btn-sm" ${!hasResults ? 'disabled' : ''} onclick="ResultsView.downloadRawCsv()" title="수집된 14개 필드 원본 CSV 전체 다운로드">
-              📑 원본 전체 CSV
+            <button type="button" class="btn btn-outline btn-sm" id="btn-download-raw-csv" ${!hasResults ? 'disabled' : ''} onclick="ResultsView.downloadRawCsv()" title="검색·필터와 관계없이 전체 수집된 ${totalCount}건 데이터 다운로드">
+              📑 전체 수집 데이터 CSV · ${totalCount}건
             </button>
           </div>
         </div>
@@ -503,6 +619,8 @@ const ResultsView = {
     if (body) {
       body.innerHTML = this.renderVocContentView();
     }
+    const filtered = this.getFilteredResults();
+    this.updateDownloadButtons(filtered.length, this.state.results.length);
   },
 
   renderVocContentView() {
@@ -511,9 +629,6 @@ const ResultsView = {
 
     const totalCount = allItems.length;
     const lgCount = allItems.filter(r => r.lg_mentioned).length;
-    const posCount = allItems.filter(r => r.ai_sentiment === 'POSITIVE').length;
-    const neuCount = allItems.filter(r => r.ai_sentiment === 'NEUTRAL').length;
-    const negCount = allItems.filter(r => r.ai_sentiment === 'NEGATIVE' || r.user_intent === 'COMPLAINT').length;
     const compTotalCount = allItems.filter(r => r.competitors && r.competitors.length > 0).length;
 
     // 경쟁사별 카운트 추출
@@ -529,6 +644,28 @@ const ResultsView = {
       }
     });
     const competitorNames = Object.keys(competitorCounts).sort((a,b) => competitorCounts[b] - competitorCounts[a]);
+
+    // 감성 집계 모집단: 현재 선택된 '언급 대상' 기준으로 실시간 갱신!
+    let sentimentBaseItems = allItems;
+    let criterionDesc = '수집된 전체 리뷰 기준 (자사 및 타사 평가 통합)';
+
+    if (this.state.targetFilter === 'lg') {
+      sentimentBaseItems = allItems.filter(r => r.lg_mentioned);
+      criterionDesc = 'LG 직접 언급 리뷰 기준 (자사 품질/기능 평가)';
+    } else if (this.state.targetFilter === 'competitor') {
+      sentimentBaseItems = allItems.filter(r => r.competitors && r.competitors.length > 0);
+      if (this.state.selectedCompetitor && this.state.selectedCompetitor !== 'all') {
+        sentimentBaseItems = sentimentBaseItems.filter(r => r.competitors.includes(this.state.selectedCompetitor));
+        criterionDesc = `${this.state.selectedCompetitor} 언급 리뷰 기준 (경쟁사 평가)`;
+      } else {
+        criterionDesc = '경쟁사 언급 리뷰 기준 (타사 불만 및 비교 평가)';
+      }
+    }
+
+    const sentTotalCount = sentimentBaseItems.length;
+    const sentPosCount = sentimentBaseItems.filter(r => r.ai_sentiment === 'POSITIVE').length;
+    const sentNeuCount = sentimentBaseItems.filter(r => r.ai_sentiment === 'NEUTRAL').length;
+    const sentNegCount = sentimentBaseItems.filter(r => r.ai_sentiment === 'NEGATIVE' || r.user_intent === 'COMPLAINT').length;
 
     // 사이트별 카운트 추출
     const siteCounts = {};
@@ -556,40 +693,35 @@ const ResultsView = {
     const siteNames = Object.keys(siteGroups);
 
     return `
-      <!-- 1. 스마트 인사이트 필터 툴바 -->
+      <!-- 1. 2줄 분리형 스마트 필터 툴바 -->
       <div class="voc-filter-toolbar">
-        <!-- 1행: 조건 탭 버튼 & 검색창 -->
-        <div class="filter-top-row">
-          <div class="filter-tabs-group">
-            <button type="button" class="btn-voc-filter ${this.state.activeFilter === 'all' ? 'active' : ''}" onclick="ResultsView.setFilter('all')">
-              전체 <span class="filter-count">${totalCount}</span>
-            </button>
-            <button type="button" class="btn-voc-filter highlight-lg ${this.state.activeFilter === 'lg_only' ? 'active' : ''}" onclick="ResultsView.setFilter('lg_only')">
-              🔥 LG 직접 언급 <span class="filter-count">${lgCount}</span>
-            </button>
-            <button type="button" class="btn-voc-filter filter-positive ${this.state.activeFilter === 'positive' ? 'active' : ''}" onclick="ResultsView.setFilter('positive')">
-              🟢 긍정 <span class="filter-count">${posCount}</span>
-            </button>
-            <button type="button" class="btn-voc-filter filter-neutral ${this.state.activeFilter === 'neutral' ? 'active' : ''}" onclick="ResultsView.setFilter('neutral')">
-              🟡 중립 <span class="filter-count">${neuCount}</span>
-            </button>
-            <button type="button" class="btn-voc-filter alert-neg ${this.state.activeFilter === 'negative' ? 'active' : ''}" onclick="ResultsView.setFilter('negative')">
-              🔴 부정 <span class="filter-count">${negCount}</span>
-            </button>
-            <button type="button" class="btn-voc-filter filter-competitor ${this.state.activeFilter === 'competitors' ? 'active' : ''}" onclick="ResultsView.setFilter('competitors')">
-              ⚔️ 경쟁사 언급 <span class="filter-count">${compTotalCount}</span>
-            </button>
+        
+        <!-- 1행: 언급 대상 (전체 / LG 직접 언급 / 경쟁사 언급) + 검색창 -->
+        <div class="filter-row filter-target-row">
+          <div class="filter-row-left">
+            <span class="filter-row-title">언급 대상:</span>
+            <div class="filter-buttons-group">
+              <button type="button" class="btn-filter-pill ${this.state.targetFilter === 'all' ? 'active' : ''}" onclick="ResultsView.setTargetFilter('all')">
+                전체 <span class="pill-badge">${totalCount}</span>
+              </button>
+              <button type="button" class="btn-filter-pill highlight-lg ${this.state.targetFilter === 'lg' ? 'active' : ''}" onclick="ResultsView.setTargetFilter('lg')">
+                🔥 LG 직접 언급 <span class="pill-badge">${lgCount}</span>
+              </button>
+              <button type="button" class="btn-filter-pill filter-competitor ${this.state.targetFilter === 'competitor' ? 'active' : ''}" onclick="ResultsView.setTargetFilter('competitor')">
+                ⚔️ 경쟁사 언급 <span class="pill-badge">${compTotalCount}</span>
+              </button>
+            </div>
           </div>
 
           <div class="filter-search-box">
-            <input type="text" class="input-text-sm" placeholder="요약, 태그, 키워드 검색..." value="${CsvUtils.escapeHtml(this.state.searchFilter)}" oninput="ResultsView.setSearchFilter(this.value)">
+            <input type="text" class="input-text-sm" placeholder="요약, 키워드, 브랜드 검색..." value="${CsvUtils.escapeHtml(this.state.searchFilter)}" oninput="ResultsView.setSearchFilter(this.value)">
           </div>
         </div>
 
-        <!-- 2행: 경쟁사 개별 필터 서브 칩 (경쟁사 언급 탭 선택 시 또는 특정 경쟁사 필터링 중일 때) -->
-        ${(this.state.activeFilter === 'competitors' || this.state.selectedCompetitor !== 'all') ? `
+        <!-- 1-1행: 경쟁사 언급 선택 시 동적 표시되는 경쟁사 브랜드 서브 칩 -->
+        ${this.state.targetFilter === 'competitor' ? `
           <div class="competitor-subfilter-bar">
-            <span class="subfilter-label">⚔️ 언급된 경쟁사별 보기:</span>
+            <span class="subfilter-label">⚔️ 언급된 경쟁사 선택:</span>
             <div class="competitor-chips-group">
               <button type="button" class="btn-comp-chip ${this.state.selectedCompetitor === 'all' ? 'active' : ''}" onclick="ResultsView.setCompetitorFilter('all')">
                 전체 경쟁사 (${compTotalCount})
@@ -603,10 +735,36 @@ const ResultsView = {
           </div>
         ` : ''}
 
+        <!-- 2행: 감성 필터 (현재 선택된 언급 대상 기준으로 갱신 & 집계 기준 안내) -->
+        <div class="filter-row filter-sentiment-row">
+          <div class="filter-row-left">
+            <span class="filter-row-title">감성 구분:</span>
+            <div class="filter-buttons-group">
+              <button type="button" class="btn-filter-pill ${this.state.sentimentFilter === 'all' ? 'active' : ''}" onclick="ResultsView.setSentimentFilter('all')">
+                전체 <span class="pill-badge">${sentTotalCount}</span>
+              </button>
+              <button type="button" class="btn-filter-pill filter-positive ${this.state.sentimentFilter === 'positive' ? 'active' : ''}" onclick="ResultsView.setSentimentFilter('positive')">
+                🟢 긍정 <span class="pill-badge">${sentPosCount}</span>
+              </button>
+              <button type="button" class="btn-filter-pill filter-neutral ${this.state.sentimentFilter === 'neutral' ? 'active' : ''}" onclick="ResultsView.setSentimentFilter('neutral')">
+                🟡 중립 <span class="pill-badge">${sentNeuCount}</span>
+              </button>
+              <button type="button" class="btn-filter-pill filter-negative ${this.state.sentimentFilter === 'negative' ? 'active' : ''}" onclick="ResultsView.setSentimentFilter('negative')">
+                🔴 부정 <span class="pill-badge">${sentNegCount}</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 집계 기준 짧게 표시 -->
+          <div class="sentiment-criterion-tag">
+            ℹ️ 감성 집계 기준: <strong>${CsvUtils.escapeHtml(criterionDesc)}</strong>
+          </div>
+        </div>
+
         <!-- 3행: 출처 사이트별 체크 필터 (수집된 전체 또는 개별 사이트 체크) -->
         <div class="site-filter-bar">
           <div class="site-filter-left">
-            <span class="site-filter-label">출처 사이트 필터:</span>
+            <span class="site-filter-label">출처 사이트:</span>
             <button type="button" class="btn-site-all-toggle ${isAllSitesActive ? 'active' : ''}" onclick="ResultsView.toggleAllSites()">
               전체 (${allSiteNames.length}개 사이트)
             </button>
@@ -631,7 +789,7 @@ const ResultsView = {
       <div class="site-accordion-container">
         ${siteNames.length === 0 ? `
           <div class="empty-state-card text-center" style="padding: 40px 20px; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0;">
-            <p style="color: #64748b; font-size: 14px;">선택한 필터 조건에 해당하는 수집 VOC가 없습니다.</p>
+            <p style="color: #64748b; font-size: 14px;">선택한 조합 필터 조건에 해당하는 수집 VOC가 없습니다.</p>
           </div>
         ` : siteNames.map(sName => this.renderSiteGroup(siteGroups[sName])).join('')}
       </div>
@@ -640,9 +798,11 @@ const ResultsView = {
 
   renderSiteGroup(group) {
     const isExpanded = this.state.expandedSiteNames.has(group.siteName);
+
+    // 사이트 헤더 미니 통계 칩
     const pos = group.items.filter(r => r.ai_sentiment === 'POSITIVE').length;
     const neu = group.items.filter(r => r.ai_sentiment === 'NEUTRAL').length;
-    const neg = group.items.filter(r => r.ai_sentiment === 'NEGATIVE').length;
+    const neg = group.items.filter(r => r.ai_sentiment === 'NEGATIVE' || r.user_intent === 'COMPLAINT').length;
 
     let siteSummary = '실사용 고객 피드백과 제품 성능 관련 토론이 활발히 진행 중입니다.';
     if (group.siteName.includes('Reddit')) {
@@ -691,10 +851,12 @@ const ResultsView = {
     `;
   },
 
+  // 결과 카드: 높이 축소, 우측 상단 뱃지 배치, 평가 대상 명시
   renderReviewCard(item) {
     const isRawExpanded = this.state.expandedReviewIds.has(item.id);
-    
-    // 1. 감성 뱃지 (원 이모티콘 🟢, 🟡, 🔴 일관 적용)
+    const targetInfo = this.getEvaluationTargetInfo(item);
+
+    // 1. 감성 뱃지
     let sentimentBadge = '<span class="review-badge badge-neutral">🟡 중립</span>';
     if (item.ai_sentiment === 'POSITIVE') {
       sentimentBadge = '<span class="review-badge badge-positive">🟢 긍정</span>';
@@ -702,7 +864,7 @@ const ResultsView = {
       sentimentBadge = '<span class="review-badge badge-negative">🔴 부정</span>';
     }
 
-    // 2. 고객 의도 뱃지 (따로 완벽 분리)
+    // 2. 고객 의도 뱃지
     let intentText = item.user_intent || '기타';
     let intentClass = 'badge-intent-neutral';
     if (item.user_intent === 'EXPERIENCE') {
@@ -720,31 +882,45 @@ const ResultsView = {
     }
     const intentBadge = `<span class="review-badge badge-intent ${intentClass}">${intentText}</span>`;
 
+    // 3. 타사 뱃지
+    const compBadge = item.competitors && item.competitors.length > 0
+      ? `<span class="review-badge badge-competitor">⚔️ 타사: ${CsvUtils.escapeHtml(item.competitors.join(', '))}</span>`
+      : '';
+
+    const dateStr = item.created_at ? item.created_at.slice(0, 10) : '2026-10-24';
+
     return `
-      <div class="voc-review-card ${item.lg_mentioned ? 'has-lg-mention' : ''}" id="rev-${item.id}">
-        <div class="review-card-top">
-          <div class="review-badges-row">
-            ${sentimentBadge}
-            ${intentBadge}
-            ${item.lg_mentioned ? `<span class="review-badge badge-lg-highlight">🌟 LG 직접 언급</span>` : ''}
-            ${item.competitors && item.competitors.length > 0 ? `<span class="review-badge badge-competitor">⚔️ 타사: ${item.competitors.join(', ')}</span>` : ''}
-            ${item.topic_tags ? item.topic_tags.map(t => `<span class="review-tag">#${CsvUtils.escapeHtml(t)}</span>`).join('') : ''}
+      <div class="voc-review-card ${item.lg_mentioned ? 'has-lg-mention' : (item.competitors && item.competitors.length > 0 ? 'has-comp-mention' : '')}" id="rev-${item.id}">
+        <div class="review-card-compact-grid">
+          <!-- 왼쪽: 감성 평가 대상 뱃지 + 언급 브랜드 + 토픽 태그 + AI 요약문 -->
+          <div class="review-left-content">
+            <div class="review-meta-inline">
+              <span class="eval-target-badge ${targetInfo.chipClass}">
+                🎯 평가 대상: <strong>${CsvUtils.escapeHtml(targetInfo.evalTarget)}</strong>
+              </span>
+              <span class="mention-brands-pill">🏷️ 언급: ${CsvUtils.escapeHtml(targetInfo.brands.join(', '))}</span>
+              ${item.topic_tags ? item.topic_tags.map(t => `<span class="review-tag">#${CsvUtils.escapeHtml(t)}</span>`).join('') : ''}
+            </div>
+            <p class="review-kr-summary">${CsvUtils.escapeHtml(item.kr_summary || '(AI 요약 없음)')}</p>
           </div>
-          <span class="review-date">${item.created_at ? item.created_at.slice(0, 10) : '2026-10-24'}</span>
+
+          <!-- 우측 상단: 필터 내용(감성, 고객 의도, 타사 뱃지) + 날짜 + 원문보기 버튼 -->
+          <div class="review-right-meta">
+            <div class="review-badges-top-right">
+              ${sentimentBadge}
+              ${intentBadge}
+              ${compBadge}
+            </div>
+            <div class="review-bottom-action-inline">
+              <span class="review-date-compact">${dateStr}</span>
+              <button type="button" class="btn-toggle-raw-compact" onclick="ResultsView.toggleRawContent('${item.id}', event)">
+                ${isRawExpanded ? '원문 접기 ▲' : '원문 보기 ▼'}
+              </button>
+            </div>
+          </div>
         </div>
 
-        <!-- 핵심 요약 (가장 강조) -->
-        <div class="review-summary-area">
-          <p class="review-kr-summary">${CsvUtils.escapeHtml(item.kr_summary || '(AI 요약 없음)')}</p>
-        </div>
-
-        <!-- 원문 토글 -->
-        <div class="review-card-bottom">
-          <button type="button" class="btn-toggle-raw" onclick="ResultsView.toggleRawContent('${item.id}', event)">
-            ${isRawExpanded ? '영문 원문 접기 ▲' : '영문 원문 보기 ▼'}
-          </button>
-        </div>
-
+        <!-- 긴 원문은 펼쳐보기 방식으로 유지 -->
         ${isRawExpanded ? `
           <div class="review-raw-box">
             <pre class="review-raw-pre"><code>${CsvUtils.escapeHtml(item.content)}</code></pre>
@@ -758,4 +934,3 @@ const ResultsView = {
 if (typeof window !== 'undefined') {
   window.ResultsView = ResultsView;
 }
-

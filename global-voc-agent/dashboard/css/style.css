@@ -1858,56 +1858,136 @@ body {
 
 .site-reviews-body.open {
   display: block;
-  padding: 16px 20px 20px;
+  padding: 10px 14px 14px;
   background-color: #fafbfc;
 }
 
 .review-cards-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
-/* 개별 리뷰 카드 */
+/* 개별 리뷰 카드: 높이 대폭 축소 & 컴팩트 레이아웃 */
 .voc-review-card {
   background-color: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 14px 18px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-  transition: all 0.18s ease;
+  border-radius: 6px;
+  padding: 8px 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition: all 0.15s ease;
 }
 
 .voc-review-card:hover {
   border-color: #cbd5e1;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.04);
 }
 
 .voc-review-card.has-lg-mention {
   border-left: 3.5px solid #ab1736;
 }
 
-.review-card-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-  flex-wrap: wrap;
-  gap: 8px;
+.voc-review-card.has-comp-mention {
+  border-left: 3.5px solid #7c3aed;
 }
 
-.review-badges-row {
+/* 컴팩트 2열 그리드: 좌측 내용 / 우측 상단 뱃지 및 액션 */
+.review-card-compact-grid {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.review-left-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.review-meta-inline {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   flex-wrap: wrap;
+  margin-bottom: 3px;
+}
+
+/* 감성 평가 대상 명확 표기 뱃지 */
+.eval-target-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.eval-target-badge.target-lg {
+  background-color: #fff1f2;
+  color: #9f1239;
+  border: 1px solid #fecdd3;
+}
+
+.eval-target-badge.target-comp {
+  background-color: #faf5ff;
+  color: #6b21a8;
+  border: 1px solid #e9d5ff;
+}
+
+.eval-target-badge.target-compare {
+  background-color: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.eval-target-badge.target-general {
+  background-color: #f8fafc;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.mention-brands-pill {
+  font-size: 11px;
+  color: #475569;
+  background-color: #f1f5f9;
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+}
+
+.review-kr-summary {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.4;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+/* 우측 상단 메타 영역: 뱃지들 + 날짜 + 원문보기 버튼 */
+.review-right-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.review-badges-top-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .review-badge {
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 700;
-  padding: 2px 7px;
+  padding: 1px 6px;
   border-radius: 4px;
+  white-space: nowrap;
 }
 
 .review-badge.badge-positive {
@@ -1964,65 +2044,53 @@ body {
 }
 
 .review-badge.badge-competitor {
-  background-color: #fef3c7;
-  color: #b45309;
+  background-color: #faf5ff;
+  color: #6b21a8;
+  border: 1px solid #e9d5ff;
 }
 
 .review-tag {
-  font-size: 11.5px;
+  font-size: 11px;
   color: #64748b;
   font-weight: 500;
   background-color: #f8fafc;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 1px 5px;
+  border-radius: 3px;
   border: 1px solid #e2e8f0;
 }
 
-.review-date {
-  font-size: 11.5px;
+.review-bottom-action-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.review-date-compact {
+  font-size: 11px;
   color: #94a3b8;
 }
 
-.review-summary-area {
-  margin: 6px 0 10px;
-}
-
-.review-kr-summary {
-  font-size: 14.5px;
-  font-weight: 700;
-  color: #0f172a;
-  line-height: 1.5;
-  margin: 0;
-  letter-spacing: -0.01em;
-}
-
-.review-card-bottom {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-}
-
-.btn-toggle-raw {
+.btn-toggle-raw-compact {
   background: none;
   border: none;
   color: #64748b;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
-  padding: 3px 6px;
-  border-radius: 4px;
+  padding: 1px 4px;
+  border-radius: 3px;
   transition: all 0.15s ease;
   font-family: inherit;
 }
 
-.btn-toggle-raw:hover {
+.btn-toggle-raw-compact:hover {
   background-color: #f1f5f9;
   color: #0f172a;
 }
 
 .review-raw-box {
-  margin-top: 10px;
-  padding: 12px 14px;
+  margin-top: 8px;
+  padding: 10px 12px;
   background-color: #f8fafc;
   border-radius: 6px;
   border: 1px solid #e2e8f0;
@@ -2031,11 +2099,11 @@ body {
 .review-raw-pre {
   margin: 0;
   font-family: 'JetBrains Mono', 'SUIT Variable', 'SUIT', monospace;
-  font-size: 12.5px;
+  font-size: 12px;
   color: #334155;
   white-space: pre-wrap;
   word-break: break-word;
-  line-height: 1.5;
+  line-height: 1.45;
 }
 
 /* ==========================================================================
@@ -2941,38 +3009,129 @@ input:checked + .slider:before {
   color: var(--text-muted);
 }
 
-/* 개편된 필터 시스템 & 사이트별 체크 필터 & 엑셀 리포트 */
-.filter-top-row {
+/* 2줄 분리형 스마트 필터 툴바 */
+.voc-filter-toolbar {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.filter-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 12px;
 }
 
-.filter-btn.filter-positive.active {
-  background: #ecfdf5 !important;
-  color: #059669 !important;
-  border-color: #a7f3d0 !important;
+.filter-row-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-.filter-btn.filter-neutral.active {
-  background: #fef9c3 !important;
-  color: #854d0e !important;
-  border-color: #fef08a !important;
+.filter-row-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  min-width: 58px;
 }
 
-.filter-btn.filter-negative.active {
-  background: #fef2f2 !important;
-  color: #e11d48 !important;
-  border-color: #fecaca !important;
+.filter-buttons-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
-.filter-btn.filter-competitor.active {
-  background: #f5f3ff !important;
-  color: #7c3aed !important;
-  border-color: #ddd6fe !important;
+.btn-filter-pill {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  color: #334155;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+
+.btn-filter-pill:hover {
+  background-color: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.btn-filter-pill.active {
+  background-color: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+
+.btn-filter-pill.highlight-lg.active {
+  background-color: #ab1736 !important;
+  color: #ffffff !important;
+  border-color: #ab1736 !important;
+}
+
+.btn-filter-pill.filter-competitor.active {
+  background-color: #7c3aed !important;
+  color: #ffffff !important;
+  border-color: #7c3aed !important;
+}
+
+.btn-filter-pill.filter-positive.active {
+  background-color: #059669 !important;
+  color: #ffffff !important;
+  border-color: #059669 !important;
+}
+
+.btn-filter-pill.filter-neutral.active {
+  background-color: #d97706 !important;
+  color: #ffffff !important;
+  border-color: #d97706 !important;
+}
+
+.btn-filter-pill.filter-negative.active {
+  background-color: #e11d48 !important;
+  color: #ffffff !important;
+  border-color: #e11d48 !important;
+}
+
+.pill-badge {
+  font-size: 11px;
+  background-color: rgba(0, 0, 0, 0.08);
+  padding: 1px 5px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.btn-filter-pill.active .pill-badge {
+  background-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+.sentiment-criterion-tag {
+  font-size: 11.5px;
+  color: #64748b;
+  margin-left: auto;
+  background-color: #f8fafc;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+}
+
+.sentiment-criterion-tag strong {
+  color: #0f172a;
 }
 
 /* 경쟁사 언급 2단계 세부 필터 바 */
@@ -3229,6 +3388,58 @@ input:checked + .slider:before {
   border-color: rgba(124, 58, 237, 0.3);
   color: #d8b4fe;
 }
+
+[data-theme="dark"] .voc-filter-toolbar {
+  background-color: var(--bg-surface);
+  border-color: var(--border-medium);
+}
+
+[data-theme="dark"] .filter-row-title {
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .btn-filter-pill {
+  background-color: var(--bg-surface);
+  border-color: var(--border-medium);
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .btn-filter-pill:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .sentiment-criterion-tag {
+  background-color: rgba(255, 255, 255, 0.04);
+  border-color: var(--border-medium);
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .sentiment-criterion-tag strong {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .voc-review-card {
+  background-color: var(--bg-surface);
+  border-color: var(--border-medium);
+}
+
+[data-theme="dark"] .voc-review-card:hover {
+  border-color: #64748b;
+}
+
+[data-theme="dark"] .review-kr-summary {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .review-raw-box {
+  background-color: rgba(255, 255, 255, 0.02);
+  border-color: var(--border-medium);
+}
+
+[data-theme="dark"] .review-raw-pre {
+  color: #cbd5e1;
+}
+
 
 
 

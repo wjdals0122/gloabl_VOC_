@@ -101,16 +101,42 @@ const ResultsView = {
     const startTime = Date.now();
     const sources = this.state.selectedSources;
 
-    const updateProgressUI = (percent, stepText, timerText, activeIdx) => {
+    const updateProgressUI = (percent, timerText, activeIdx, completedCount) => {
       const fillEl = document.getElementById('voc-progress-fill');
-      const percentEl = document.getElementById('voc-progress-percent');
-      const stepEl = document.getElementById('voc-progress-step-text');
+      const counterEl = document.getElementById('voc-progress-steps-count');
       const timerEl = document.getElementById('progress-timer-display');
 
       if (fillEl) fillEl.style.width = `${Math.min(Math.round(percent), 100)}%`;
-      if (percentEl) percentEl.textContent = `${Math.min(Math.round(percent), 100)}%`;
-      if (stepEl && stepText) stepEl.textContent = stepText;
+      if (counterEl) counterEl.textContent = `${completedCount} of 4 steps (${Math.min(Math.round(percent), 100)}%)`;
       if (timerEl && timerText) timerEl.textContent = timerText;
+
+      // c-progress-7 스텝 아이콘 및 텍스트 갱신
+      for (let i = 0; i < 4; i++) {
+        const stepEl = document.getElementById(`c-step-${i}`);
+        if (!stepEl) continue;
+        const iconSlot = stepEl.querySelector('.step-icon-slot');
+        const textSlot = stepEl.querySelector('.step-text');
+
+        if (i < completedCount) {
+          stepEl.className = 'c-step-item completed';
+          if (iconSlot) {
+            iconSlot.innerHTML = `<svg class="icon-circle-check text-success" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`;
+          }
+          if (textSlot) textSlot.className = 'step-text text-foreground font-medium';
+        } else if (i === activeIdx) {
+          stepEl.className = 'c-step-item active';
+          if (iconSlot) {
+            iconSlot.innerHTML = `<span class="step-active-ring"><span class="step-active-dot"></span></span>`;
+          }
+          if (textSlot) textSlot.className = 'step-text text-primary font-semibold';
+        } else {
+          stepEl.className = 'c-step-item pending';
+          if (iconSlot) {
+            iconSlot.innerHTML = `<svg class="icon-circle text-muted" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>`;
+          }
+          if (textSlot) textSlot.className = 'step-text text-muted-foreground';
+        }
+      }
 
       if (typeof activeIdx === 'number') {
         sources.forEach((_, idx) => {
@@ -133,7 +159,7 @@ const ResultsView = {
       }
     };
 
-    updateProgressUI(10, '출처 서버 연결 및 세션 초기화 중...', '약 2~3초 소요 예상', 0);
+    updateProgressUI(10, '약 2~3초 소요 예상', 0, 0);
 
     let currentPercent = 10;
     this.state.progressTimer = setInterval(() => {
@@ -141,16 +167,19 @@ const ResultsView = {
         currentPercent += (90 - currentPercent) * 0.18;
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
         let activeIdx = 0;
-        let stepText = '데이터 스크래핑 진행 중...';
+        let completedCount = 0;
 
-        if (currentPercent > 30 && currentPercent <= 65) {
-          activeIdx = Math.min(1, sources.length - 1);
-          stepText = `[${activeIdx + 1}/${sources.length}] 리뷰 본문 및 댓글 추출 중...`;
-        } else if (currentPercent > 65) {
-          activeIdx = Math.min(2, sources.length - 1);
-          stepText = `[AI 분석] 한국어 핵심 요약 및 감성 분류 실행 중...`;
+        if (currentPercent >= 25 && currentPercent < 55) {
+          activeIdx = 1;
+          completedCount = 1;
+        } else if (currentPercent >= 55 && currentPercent < 80) {
+          activeIdx = 2;
+          completedCount = 2;
+        } else if (currentPercent >= 80) {
+          activeIdx = 3;
+          completedCount = 3;
         }
-        updateProgressUI(currentPercent, stepText, `${elapsed}초 경과 / 약 2~3초 소요 예상`, activeIdx);
+        updateProgressUI(currentPercent, `${elapsed}초 경과 / 약 2~3초 소요 예상`, activeIdx, completedCount);
       }
     }, 180);
 
@@ -515,49 +544,67 @@ const ResultsView = {
     let subTabContentHtml = '';
     if (isProcessing) {
       subTabContentHtml = `
-        <div class="collection-progress-card">
-          <div class="progress-card-top">
-            <div class="progress-title-area">
-              <div class="progress-title-row">
-                <span class="badge badge-processing-pulse">수집 진행 중</span>
-                <h4 class="progress-main-heading">선택한 ${selectedCount}개 출처에서 리뷰 데이터를 수집하고 AI로 분석 중입니다</h4>
-              </div>
-              <p class="progress-sub-text">각 출처별 고객 리뷰 텍스트를 수집하고, 한국어 핵심 요약 및 감성 분석을 진행합니다.</p>
+        <div class="collection-progress-card c-progress-card">
+          <div class="c-progress-header">
+            <div class="c-progress-title-group">
+              <span class="badge badge-processing-pulse">실시간 수집 파이프라인</span>
+              <h4 class="c-progress-heading">선택한 ${selectedCount}개 출처에서 리뷰 수집 및 AI 분석 진행 중</h4>
             </div>
-            <div class="progress-timer-box">
+            <div class="c-progress-timer-box">
               <span class="timer-icon">⏱️</span>
-              <div class="timer-text-group">
-                <span class="timer-label">소요 시간</span>
-                <strong class="timer-value" id="progress-timer-display">약 2~3초 소요 예상</strong>
-              </div>
+              <strong class="timer-value" id="progress-timer-display">약 2~3초 소요 예상</strong>
             </div>
           </div>
 
-          <div class="progress-bar-shell">
-            <div class="progress-bar-track">
-              <div class="progress-bar-fill" id="voc-progress-fill" style="width: 10%;">
-                <div class="progress-bar-shimmer"></div>
+          <!-- c-progress-7 헤더 및 Radix 프로그레스 바 -->
+          <div class="c-progress-body">
+            <div class="c-progress-status-bar">
+              <span class="c-progress-label">수집 및 AI 분석 진행</span>
+              <span class="c-progress-step-counter" id="voc-progress-steps-count">0 of 4 steps (10%)</span>
+            </div>
+
+            <!-- Radix/shadcn Progress Bar -->
+            <div class="shadcn-progress-root" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+              <div class="shadcn-progress-indicator" id="voc-progress-fill" style="width: 10%;"></div>
+            </div>
+
+            <!-- c-progress-7 스텝 체크리스트 -->
+            <div class="c-progress-steps-list">
+              <div class="c-step-item active" id="c-step-0">
+                <div class="step-icon-slot">
+                  <span class="step-active-ring"><span class="step-active-dot"></span></span>
+                </div>
+                <span class="step-text text-primary font-semibold">출처 서버 연결 및 세션 초기화</span>
+              </div>
+              <div class="c-step-item pending" id="c-step-1">
+                <div class="step-icon-slot">
+                  <svg class="icon-circle text-muted" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>
+                </div>
+                <span class="step-text text-muted-foreground">선택 출처(${selectedCount}개 사이트) 리뷰 본문 및 댓글 추출</span>
+              </div>
+              <div class="c-step-item pending" id="c-step-2">
+                <div class="step-icon-slot">
+                  <svg class="icon-circle text-muted" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>
+                </div>
+                <span class="step-text text-muted-foreground">AI 한국어 핵심 1줄 요약 및 14개 필드 스키마 분석</span>
+              </div>
+              <div class="c-step-item pending" id="c-step-3">
+                <div class="step-icon-slot">
+                  <svg class="icon-circle text-muted" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>
+                </div>
+                <span class="step-text text-muted-foreground">감성(긍·중·부정) 및 고객 의도 분류 완료</span>
               </div>
             </div>
-          </div>
 
-          <div class="progress-status-meta">
-            <div class="progress-current-step">
-              <span class="step-pulse-dot"></span>
-              <span class="step-text" id="voc-progress-step-text">출처 서버 연결 및 세션 초기화 중...</span>
+            <!-- 하단 출처 사이트 칩 -->
+            <div class="progress-source-chips">
+              ${this.state.selectedSources.map((s, i) => `
+                <div class="source-chip ${i === 0 ? 'active' : 'pending'}" id="source-chip-${i}">
+                  <span class="chip-icon">${i === 0 ? '⚡' : '⏳'}</span>
+                  <span class="chip-name">${CsvUtils.escapeHtml(s.site_name || '출처')}</span>
+                </div>
+              `).join('')}
             </div>
-            <div class="progress-percentage-display">
-              <strong id="voc-progress-percent">10%</strong>
-            </div>
-          </div>
-
-          <div class="progress-source-chips">
-            ${this.state.selectedSources.map((s, i) => `
-              <div class="source-chip ${i === 0 ? 'active' : 'pending'}" id="source-chip-${i}">
-                <span class="chip-icon">${i === 0 ? '⚡' : '⏳'}</span>
-                <span class="chip-name">${CsvUtils.escapeHtml(s.site_name || '출처')}</span>
-              </div>
-            `).join('')}
           </div>
         </div>
       `;

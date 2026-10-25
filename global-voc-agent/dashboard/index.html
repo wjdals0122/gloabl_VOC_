@@ -20,15 +20,33 @@
         <img src="images/lg-voc-lab-header-logo.png" alt="LG 글로벌 VOC 랩 | 해외 고객 반응을 수집·분석하는 AI Agent" class="brand-logo-img">
       </a>
 
-      <!-- 주요 메뉴: 2개 기본 파이프라인 탭(Pill)과 명확히 구분된 독립형 정기 리포트 예약 탭 -->
-      <nav class="header-center-nav" role="navigation" aria-label="주요 메뉴">
-        <!-- 1. 기본 수집 파이프라인 (2단계 묶음) -->
-        <div class="nav-tab-pill">
+      <!-- 주요 메뉴: Tubelight Navbar 스타일 적용 (발광 램프 이펙트 및 아이콘 탑재) -->
+      <nav class="header-center-nav tubelight-nav-root" role="navigation" aria-label="주요 메뉴">
+        <!-- 1. 기본 수집 파이프라인 (Tubelight Pill Shell) -->
+        <div class="nav-tab-pill tubelight-navbar-shell">
           <button type="button" class="nav-tab-btn active" id="nav-btn-sources" data-tab="tab-sources">
-            VOC 탐색
+            <span class="tab-icon">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </span>
+            <span class="tab-label">VOC 탐색</span>
+            <div class="tubelight-lamp" aria-hidden="true">
+              <div class="lamp-bar"></div>
+              <div class="lamp-glow-outer"></div>
+              <div class="lamp-glow-mid"></div>
+              <div class="lamp-glow-inner"></div>
+            </div>
           </button>
           <button type="button" class="nav-tab-btn" id="nav-btn-results" data-tab="tab-results">
-            수집 결과
+            <span class="tab-icon">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            </span>
+            <span class="tab-label">수집 결과</span>
+            <div class="tubelight-lamp" aria-hidden="true">
+              <div class="lamp-bar"></div>
+              <div class="lamp-glow-outer"></div>
+              <div class="lamp-glow-mid"></div>
+              <div class="lamp-glow-inner"></div>
+            </div>
           </button>
         </div>
 
@@ -36,10 +54,16 @@
         <div class="nav-tab-divider" aria-hidden="true"></div>
 
         <!-- 3. 구분된 독립 탭: 정기 리포트 예약 -->
-        <button type="button" class="nav-tab-standalone" id="nav-btn-scheduled" data-tab="tab-scheduled" title="원하는 주기(매주 월요일 09시 등)로 VOC를 자동 수집하여 이메일로 받아보는 기능">
+        <button type="button" class="nav-tab-standalone tubelight-standalone-btn" id="nav-btn-scheduled" data-tab="tab-scheduled" title="원하는 주기(매주 월요일 09시 등)로 VOC를 자동 수집하여 이메일로 받아보는 기능">
           <span class="tab-icon">⏰</span>
-          <span>정기 리포트 예약</span>
+          <span class="tab-label">정기 리포트 예약</span>
           <span class="scheduled-badge" id="nav-scheduled-badge">2</span>
+          <div class="tubelight-lamp" aria-hidden="true">
+            <div class="lamp-bar"></div>
+            <div class="lamp-glow-outer"></div>
+            <div class="lamp-glow-mid"></div>
+            <div class="lamp-glow-inner"></div>
+          </div>
         </button>
       </nav>
 

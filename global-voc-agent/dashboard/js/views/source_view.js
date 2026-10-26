@@ -1,16 +1,12 @@
 /**
  * dashboard/js/views/source_view.js
- * 1단계: 출처 탐색 및 선택 화면 뷰 모듈
+ * 1단계: VOC 탐색 및 수집 조건 설정 화면
  * 
- * [요구사항 반영]
- * 1. 추천 키워드 및 버튼 완전 제거
- * 2. 제품 일치, 리뷰 존재, 리뷰 수 3개 열 완전 제거
- * 3. 4대 핵심 열 구성: 선택 / 사이트명 및 유형 / 사이트 설명 / 원문 링크
- * 4. 사이트명은 굵고 선명하게 (배경 검은 띠 제거), 사이트 유형은 차분한 보조 텍스트로 바로 아래 배치
- * 5. 사이트 설명은 충분한 너비와 자연스러운 줄바꿈, 미등록 시 '설명 미등록' 표기
- * 6. 원문 링크는 '페이지 열기 ↗'로 표시, 마우스 호버 시 전체 URL 툴팁 제공
- * 7. 목록 상단: '수집할 출처 선택', '전체 N개 중 M개 선택됨', 우측 '출처 목록 다운로드'
- * 8. 목록 하단 우측: '총 N개 선택됨' 문구와 '선택한 출처로 다음 단계' 주요 버튼
+ * [개편 사항]
+ * 1. '수집할 출처 선택' 목록 및 하단 고정 수집 바 완전 삭제
+ * 2. [대상 국가], [키워드], [기간 선택], [수집 채널 선택(3가지)] 입력 지원
+ * 3. [🔍 VOC 수집 및 분석 시작] 클릭 시 결과 대시보드로 자동 이동 및 분석 시작
+ * 4. 추천 분석 키워드 클릭 시 원클릭 수집 지원
  */
 
 const SourceView = {
@@ -18,34 +14,42 @@ const SourceView = {
 
   state: {
     country: 'US',
-    product: 'LG OLED evo G4',
-    discoveredSources: [],
-    selectedSourceIds: new Set(),
-    isSearching: false,
-    apiErrorNotice: null
+    keyword: 'LG 워시콤보',
+    period: '1m', // '7d' | '1m' | '3m' | '6m' | '1y'
+    channel: 'all' // 'all' | 'community' | 'reviews'
   },
 
   init() {
+    this.readInputsFromDom();
     this.bindEvents();
-    if (AppConfig.isDemoMode) {
-      this.handleSearch();
-    } else {
-      this.state.apiErrorNotice = '출처 탐색 API 연결 필요 (백엔드에서 discoverSources 엔드포인트 분리 작업 진행 중)';
-      this.render();
-    }
+    this.render();
+  },
+
+  readInputsFromDom() {
+    const countryEl = document.getElementById('input-country');
+    if (countryEl) this.state.country = countryEl.value || 'US';
+
+    const keywordEl = document.getElementById('input-product');
+    if (keywordEl) this.state.keyword = keywordEl.value ? keywordEl.value.trim() : 'LG 워시콤보';
+
+    const periodEl = document.getElementById('select-period');
+    if (periodEl) this.state.period = periodEl.value || '1m';
+
+    const channelEl = document.getElementById('select-channel');
+    if (channelEl) this.state.channel = channelEl.value || 'all';
   },
 
   bindEvents() {
+    // 1. 수집 및 분석 시작 버튼
     const searchBtn = document.getElementById('btn-discover-sources');
     if (searchBtn) {
-      searchBtn.addEventListener('click', () => this.handleSearch());
+      searchBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.startCollectionAndAnalysis();
+      });
     }
 
-    const instantBtn = document.getElementById('btn-instant-collect');
-    if (instantBtn) {
-      instantBtn.addEventListener('click', () => this.handleInstantCollect());
-    }
-
+    // 2. 국가 선택 드롭다운
     const countrySelect = document.getElementById('input-country');
     if (countrySelect) {
       countrySelect.addEventListener('change', (e) => {
@@ -53,300 +57,163 @@ const SourceView = {
       });
     }
 
-    const productInput = document.getElementById('input-product');
-    if (productInput) {
-      productInput.addEventListener('input', (e) => {
-        this.state.product = e.target.value;
+    // 3. 키워드 입력 필드 (IME 한글 입력 보존)
+    const keywordInput = document.getElementById('input-product');
+    if (keywordInput) {
+      keywordInput.addEventListener('input', (e) => {
+        this.state.keyword = e.target.value;
       });
-      // 엔터키 입력 시 검색 실행
-      productInput.addEventListener('keydown', (e) => {
+      keywordInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
           e.preventDefault();
-          this.handleSearch();
+          this.startCollectionAndAnalysis();
         }
+      });
+    }
+
+    // 4. 기간 선택 드롭다운
+    const periodSelect = document.getElementById('select-period');
+    if (periodSelect) {
+      periodSelect.addEventListener('change', (e) => {
+        this.state.period = e.target.value;
+      });
+    }
+
+    // 5. 수집 채널 선택 드롭다운
+    const channelSelect = document.getElementById('select-channel');
+    if (channelSelect) {
+      channelSelect.addEventListener('change', (e) => {
+        this.state.channel = e.target.value;
       });
     }
   },
 
-  handleInstantCollect() {
+  setPresetKeyword(keyword) {
+    const keywordInput = document.getElementById('input-product');
+    if (keywordInput) {
+      keywordInput.value = keyword;
+      this.state.keyword = keyword;
+    }
+    this.startCollectionAndAnalysis();
+  },
+
+  startCollectionAndAnalysis() {
+    this.readInputsFromDom();
+
     const country = this.state.country || 'US';
-    const product = this.state.product ? this.state.product.trim() : 'LG OLED evo G4';
+    const keyword = this.state.keyword ? this.state.keyword.trim() : 'LG 워시콤보';
+    const period = this.state.period || '1m';
+    const channel = this.state.channel || 'all';
 
-    // 2단계 결과 탭으로 이동 후 즉시 n8n Webhook 일괄 수집 시작
-    App.navigateToTab('tab-results');
-    ResultsView.startInstantCollection(country, product);
-  },
-
-  async handleSearch() {
-    const country = this.state.country || 'US';
-    const product = this.state.product ? this.state.product.trim() : 'LG OLED evo G4';
-
-    this.state.isSearching = true;
-    this.state.apiErrorNotice = null;
-    this.render();
-
-    try {
-      const res = await VocApiClient.discoverSources(country, product);
-
-      if (res.success) {
-        this.state.discoveredSources = res.sources || [];
-        // 기본적으로 전체 출처 선택
-        this.state.selectedSourceIds = new Set(this.state.discoveredSources.map((s, idx) => s.source_id || `src_${idx}`));
-        this.state.apiErrorNotice = null;
-      } else {
-        this.state.discoveredSources = [];
-        this.state.selectedSourceIds = new Set();
-        this.state.apiErrorNotice = res.message || '출처 탐색 API 연결 필요';
-      }
-    } catch (e) {
-      this.state.discoveredSources = [];
-      this.state.selectedSourceIds = new Set();
-      this.state.apiErrorNotice = e.message || '출처 탐색 중 오류가 발생했습니다.';
-    } finally {
-      this.state.isSearching = false;
-      this.render();
-
-      try {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('demo_collect') === '1' && this.state.discoveredSources.length > 0) {
-          this.proceedToCollection();
-        }
-      } catch (e) {}
-    }
-  },
-
-  toggleSelectAll(checked) {
-    if (checked) {
-      this.state.selectedSourceIds = new Set(this.state.discoveredSources.map((s, idx) => s.source_id || `src_${idx}`));
-    } else {
-      this.state.selectedSourceIds.clear();
-    }
-    this.render();
-  },
-
-  toggleSource(id, checked) {
-    if (checked) {
-      this.state.selectedSourceIds.add(id);
-    } else {
-      this.state.selectedSourceIds.delete(id);
-    }
-    this.render();
-  },
-
-  downloadSourcesCsv() {
-    if (this.state.discoveredSources.length === 0) {
-      alert('다운로드할 출처 목록 데이터가 없습니다.');
-      return;
-    }
-    const csv = CsvUtils.generateSourcesCsv(this.state.country, this.state.product, this.state.discoveredSources);
-    const filename = `voc_sources_${this.state.country}_${this.state.product.replace(/\s+/g, '_')}.csv`;
-    CsvUtils.downloadCsvText(csv, filename);
-  },
-
-  proceedToCollection() {
-    const selected = this.getSelectedSources();
-    if (selected.length === 0) {
-      alert('수집할 출처를 최소 1개 이상 선택해주세요.');
-      return;
-    }
-
+    // [수집 결과] 탭으로 전환하여 분석 대시보드 실행
     App.navigateToTab('tab-results', {
-      country: this.state.country,
-      product: this.state.product,
-      selectedSources: selected,
+      country: country,
+      keyword: keyword,
+      product: keyword,
+      period: period,
+      channel: channel,
       autoStart: true
     });
   },
 
-  getSelectedSources() {
-    return this.state.discoveredSources.filter((s, idx) => {
-      const id = s.source_id || `src_${idx}`;
-      return this.state.selectedSourceIds.has(id);
-    });
-  },
-
-  extractDomain(url) {
-    if (!url) return '';
-    try {
-      const parsed = new URL(url);
-      return parsed.hostname.replace(/^www\./, '');
-    } catch (e) {
-      return url.replace(/^https?:\/\//, '').split('/')[0].replace(/^www\./, '');
+  getChannelName(channel) {
+    switch (channel) {
+      case 'community': return '커뮤니티 전용';
+      case 'reviews': return '제품리뷰 전용';
+      default: return '커뮤니티 + 제품리뷰 통합';
     }
   },
 
-  formatCategory(category) {
-    if (!category) return '기타 웹사이트';
-    const cat = String(category).trim().toLowerCase();
-
-    if (cat.includes('e-commerce') || cat.includes('ecommerce') || cat.includes('가전 판매점') || cat.includes('쇼핑몰') || cat.includes('이커머스')) {
-      return '가전 판매점, 온라인 쇼핑몰';
+  getPeriodName(period) {
+    switch (period) {
+      case '7d': return '최근 7일';
+      case '3m': return '최근 3개월';
+      case '6m': return '최근 6개월';
+      case '1y': return '최근 1년';
+      default: return '최근 1개월';
     }
-    if (cat.includes('community') || cat.includes('forum') || cat.includes('커뮤니티') || cat.includes('포럼')) {
-      return '커뮤니티';
-    }
-    if (cat.includes('tech review') || cat.includes('tech') || cat.includes('전문 리뷰') || cat.includes('리뷰 사이트')) {
-      return '전문 리뷰 사이트';
-    }
-    if (cat.includes('price comparison') || cat.includes('price') || cat.includes('가격 비교') || cat.includes('가격비교')) {
-      return '가격 비교 사이트';
-    }
-    return category;
   },
 
   render() {
     const container = document.getElementById(this.containerId);
     if (!container) return;
 
-    // 실제 모드 API 미연결 안내 배너
-    let bannerHtml = '';
-    if (this.state.apiErrorNotice) {
-      bannerHtml = `
-        <div class="api-notice-bar" role="alert">
-          <div class="notice-icon">ℹ️</div>
-          <div class="notice-text">
-            <strong>${CsvUtils.escapeHtml(this.state.apiErrorNotice)}</strong>
-            <p>백엔드에서 탐색 및 수집 엔드포인트 분리 배포 전까지 실제 모드에서는 조회를 보류합니다. 상단 우측 [설정]에서 데모 모드로 전환하시면 전체 수집 흐름을 시연해보실 수 있습니다.</p>
-          </div>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="App.toggleDemoMode(true)">데모 모드로 전환</button>
-        </div>
-      `;
-    }
-
-    if (this.state.isSearching) {
-      container.innerHTML = `
-        ${bannerHtml}
-        <div class="loading-state-card">
-          <div class="spinner"></div>
-          <p>후보 출처를 탐색하고 있습니다...</p>
-        </div>
-      `;
-      return;
-    }
-
-    const sources = this.state.discoveredSources;
-    const totalCount = sources.length;
-    const selectedCount = this.state.selectedSourceIds.size;
-    const isAllSelected = totalCount > 0 && selectedCount === totalCount;
-
-    let tableRowsHtml = '';
-    if (totalCount === 0) {
-      tableRowsHtml = `
-        <tr>
-          <td colspan="4" class="empty-cell">
-            ${this.state.apiErrorNotice ? '출처 탐색 API 연결 대기 중입니다.' : '조건을 입력하고 [출처 찾기]를 클릭하세요.'}
-          </td>
-        </tr>
-      `;
-    } else {
-      tableRowsHtml = sources.map((s, idx) => {
-        const id = s.source_id || `src_${idx}`;
-        const isChecked = this.state.selectedSourceIds.has(id);
-        
-        // 도메인 추출 및 4대 표준 유형 라벨
-        const domain = this.extractDomain(s.url);
-        const categoryLabel = this.formatCategory(s.category);
-        
-        // 사이트 설명
-        const descText = s.description 
-          ? `<span class="site-desc-text">${CsvUtils.escapeHtml(s.description)}</span>`
-          : `<span class="site-desc-empty">사이트 설명 미확인</span>`;
-
-        return `
-          <tr class="${isChecked ? 'row-selected' : ''}">
-            <td class="col-checkbox">
-              <input type="checkbox" id="chk-${id}" class="voc-checkbox" ${isChecked ? 'checked' : ''} onchange="SourceView.toggleSource('${id}', this.checked)" aria-label="${CsvUtils.escapeHtml(s.site_name)} 선택">
-            </td>
-            <td class="col-site-info">
-              <div class="site-info-cell">
-                <span class="site-name">${CsvUtils.escapeHtml(s.site_name || '사이트')}</span>
-                <div class="site-meta-row">
-                  ${domain ? `<span class="site-domain">${CsvUtils.escapeHtml(domain)}</span>` : ''}
-                  <span class="site-category-badge">${CsvUtils.escapeHtml(categoryLabel)}</span>
-                </div>
-              </div>
-            </td>
-            <td class="col-site-desc">
-              ${descText}
-            </td>
-            <td class="col-site-link">
-              <a href="${CsvUtils.escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer" class="link-open-page" title="${CsvUtils.escapeHtml(s.url)}">
-                페이지 열기 ↗
-              </a>
-            </td>
-          </tr>
-        `;
-      }).join('');
-    }
-
+    // 출처 선택 테이블 및 고정바 완전 삭제 후, 신뢰도 높은 채널 인텔리전스 가이드 렌더링
     container.innerHTML = `
-      ${bannerHtml}
-
-      <div class="source-table-card">
-        <!-- 테이블 상단 헤더: 제목, 카운터, CSV 다운로드 버튼 -->
-        <div class="table-top-bar">
-          <div class="top-bar-left">
-            <h2 class="table-title">수집할 출처 선택</h2>
-            <span class="selection-summary">전체 ${totalCount}개 중 <strong>${selectedCount}개</strong> 선택됨</span>
-          </div>
-          <div class="top-bar-right">
-            <button type="button" class="btn btn-outline btn-sm" id="btn-download-sources-csv" ${totalCount === 0 ? 'disabled' : ''}>
-              출처 목록 다운로드
-            </button>
+      <div class="voc-exploration-guide-section">
+        <!-- 추천 검색 키워드 칩스 -->
+        <div class="explore-preset-bar">
+          <span class="preset-label">🔥 추천 분석 키워드:</span>
+          <div class="preset-chips">
+            <button type="button" class="preset-chip" onclick="SourceView.setPresetKeyword('LG 워시콤보')">#LG 워시콤보</button>
+            <button type="button" class="preset-chip" onclick="SourceView.setPresetKeyword('LG OLED evo G4')">#LG OLED evo G4</button>
+            <button type="button" class="preset-chip" onclick="SourceView.setPresetKeyword('LG 스탠바이미')">#LG 스탠바이미</button>
+            <button type="button" class="preset-chip" onclick="SourceView.setPresetKeyword('LG 스타일러')">#LG 스타일러</button>
+            <button type="button" class="preset-chip" onclick="SourceView.setPresetKeyword('LG 인스타뷰 냉장고')">#LG 인스타뷰 냉장고</button>
           </div>
         </div>
 
-        <!-- 4대 핵심 정보 테이블: 체크박스(48px) / 사이트명·유형(280~320px) / 사이트 설명 / 원문(110~120px) -->
-        <div class="table-responsive">
-          <table class="voc-data-table">
-            <thead>
-              <tr>
-                <th class="col-checkbox">
-                  <input type="checkbox" id="chk-master" class="voc-checkbox" ${isAllSelected ? 'checked' : ''} ${totalCount === 0 ? 'disabled' : ''} onchange="SourceView.toggleSelectAll(this.checked)" aria-label="전체 출처 선택">
-                </th>
-                <th class="col-site-info">사이트명 및 유형</th>
-                <th class="col-site-desc">사이트 설명</th>
-                <th class="col-site-link">원문 링크</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${tableRowsHtml}
-            </tbody>
-          </table>
+        <!-- 3대 수집 채널 및 분석 역량 안내 카드 -->
+        <div class="channel-coverage-grid">
+          <!-- 채널 1: 커뮤니티 -->
+          <div class="channel-info-card">
+            <div class="card-icon-wrap icon-community">💬</div>
+            <div class="card-body">
+              <div class="card-badge">채널 옵션 1</div>
+              <h3 class="card-title">커뮤니티 (Community)</h3>
+              <p class="card-desc">Reddit, AVS Forum, 현지 테크 커뮤니티, 카페 등의 솔직한 실사용 토론 및 설치/내구성 이슈를 수집합니다.</p>
+              <div class="card-sources-tag">주요 출처: Reddit, AVS Forum, Wykop, Clien 등</div>
+            </div>
+          </div>
+
+          <!-- 채널 2: 제품리뷰 -->
+          <div class="channel-info-card">
+            <div class="card-icon-wrap icon-reviews">⭐</div>
+            <div class="card-body">
+              <div class="card-badge">채널 옵션 2</div>
+              <h3 class="card-title">제품리뷰 (Product Reviews)</h3>
+              <p class="card-desc">Best Buy, MediaMarkt, 전문 테크 평가 사이트(RTINGS 등)의 구매 평점과 상세 평가 의견을 정밀 분석합니다.</p>
+              <div class="card-sources-tag">주요 출처: Best Buy, RTINGS, Home Depot, Danawa 등</div>
+            </div>
+          </div>
+
+          <!-- 채널 3: 통합 인텔리전스 -->
+          <div class="channel-info-card highlight-card">
+            <div class="card-icon-wrap icon-combined">📊</div>
+            <div class="card-body">
+              <div class="card-badge badge-recommended">추천 채널 옵션 3</div>
+              <h3 class="card-title">커뮤니티 + 제품리뷰 (통합)</h3>
+              <p class="card-desc">구매 전 탐색(커뮤니티)과 구매 후 평가(제품리뷰)를 크로스 분석하여 고객 여정 전반의 긍부정 및 키워드 순위를 제공합니다.</p>
+              <div class="card-sources-tag">언급량 추이 · 긍/부정 비율 · 순위 키워드 자동 산출</div>
+            </div>
+          </div>
         </div>
 
-        <div class="table-footer-note">
-          <span>※ 선택된 사이트에 대해서만 VOC 원문 텍스트 수집이 진행됩니다.</span>
+        <!-- 분석 파이프라인 프로세스 띠 배너 -->
+        <div class="pipeline-flow-banner">
+          <div class="flow-step">
+            <span class="step-num">01</span>
+            <span class="step-title">글로벌 채널 수집</span>
+            <span class="step-sub">국가/기간별 다채널 데이터 스크래핑</span>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <span class="step-num">02</span>
+            <span class="step-title">Gemini AI 정밀 분석</span>
+            <span class="step-sub">긍부정 판별 · 핵심 키워드 클러스터링</span>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <span class="step-num">03</span>
+            <span class="step-title">시계열 & 채널 비교 대시보드</span>
+            <span class="step-sub">언급량 추이 및 순위 시각화 리포트</span>
+          </div>
         </div>
       </div>
-
-      <!-- 하단 고정 수집 실행 바 (Fixed Bottom Action Bar) -->
-      ${totalCount > 0 ? `
-      <aside class="fixed-collection-bar" role="region" aria-label="출처 수집 실행 바">
-        <div class="fixed-bar-inner">
-          <div class="fixed-bar-left">
-            <span class="fixed-counter"><strong>${selectedCount}개</strong> 출처 선택됨</span>
-            <span class="fixed-sep" aria-hidden="true">·</span>
-            ${selectedCount > 0 
-              ? `<button type="button" class="btn-text-action" onclick="SourceView.toggleSelectAll(false)">선택 해제</button>`
-              : `<button type="button" class="btn-text-action" onclick="SourceView.toggleSelectAll(true)">전체 선택</button>`
-            }
-          </div>
-          <div class="fixed-bar-right">
-            <button type="button" class="btn btn-primary btn-fixed-collect" id="btn-proceed-collection" ${selectedCount === 0 ? 'disabled' : ''}>
-              선택한 ${selectedCount}개 출처 수집 &gt;
-            </button>
-          </div>
-        </div>
-      </aside>
-      ` : ''}
     `;
-
-    // 이벤트 바인딩
-    const downloadBtn = document.getElementById('btn-download-sources-csv');
-    if (downloadBtn) downloadBtn.addEventListener('click', () => this.downloadSourcesCsv());
-
-    const proceedBtn = document.getElementById('btn-proceed-collection');
-    if (proceedBtn) proceedBtn.addEventListener('click', () => this.proceedToCollection());
   }
 };
+
+if (typeof window !== 'undefined') {
+  window.SourceView = SourceView;
+}

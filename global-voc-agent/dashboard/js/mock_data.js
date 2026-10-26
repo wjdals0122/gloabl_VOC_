@@ -148,15 +148,228 @@ const MockData = {
       'RD_POST_oz0o5o8,Reddit,Community/Forum,POST,"[Title] /u/Adverbsaredumb on Are washer/dryer combos too good to be true?\\n[Body] lol I’m just saying I have a 5 bedroom house and the laundry room is smaller than my closet! The builder had to know a family would live here; and those dumbdumbs still put in the tiniest little passthrough laundry room with barely enough room for the washer and dryer. In seriousness though, a stackable set might be an option",,"세탁실이 협소하여 공간 최적화를 위해 스택형 일체형 가전을 고려 중입니다.",NEGATIVE,COMPLAINT,"[""공간 문제""]",[],false,"{""analyzed_at"":""2026-10-24T06:10:25.160Z"",""lg_mentioned"":false}",2026-10-24 06:10:25.935209+00',
       'BB_REV_001,Best Buy US,E-commerce,REVIEW,"[Review 5/5] Replaced my old laundry set with the LG WashTower. Best decision ever. The center control panel is ergonomic and drying cycle is quiet.",,LG 워시타워 중앙 제어판 조작이 인체공학적이고 건조가 조용하여 대만족.,POSITIVE,EXPERIENCE,"[""조작 편의성"",""소음""]",[],false,"{""analyzed_at"":""2026-10-24T06:10:25.160Z"",""lg_mentioned"":true}",2026-10-24 06:10:25.935209+00',
       'BB_REV_002,Best Buy US,E-commerce,REVIEW,"[Review 4/5] Love the all in one concept. Takes a bit longer to dry heavy blankets, but not having to move clothes is a lifesaver.",,올인원 세탁건조 콤보의 편리함에 만족하나 두꺼운 이불 건조 시간은 다소 소요됨.,POSITIVE,EXPERIENCE,"[""건조 성능"",""편리함""]",[],false,"{""analyzed_at"":""2026-10-24T06:10:25.160Z"",""lg_mentioned"":false}",2026-10-24 06:10:25.935209+00',
-      'BB_REV_003,Best Buy US,E-commerce,REVIEW,"[Review 5/5] LG OLED TV picture is completely unmatched. Zero blooming and inky blacks.",,LG OLED TV의 암부 표현력과 제로 블루밍 화질은 대체 불가능한 최고 수준.,POSITIVE,EXPERIENCE,"[""화질"",""디자인""]",[],false,"{""analyzed_at"":""2026-10-24T06:10:25.160Z"",""lg_mentioned"":true}",2026-10-24 06:10:25.935209+00',
       'RT_REV_001,RTINGS.com User Feedback,Tech Review,EXPERT_REVIEW,"[RTINGS Editorial Score: 8.8/10] Outstanding washing and drying consistency. The AI Fabric sensor accurately adjusts water levels and temperature. Best-in-class vibration reduction.",,AI 직물 감지 센서 정확도 및 진동 감소 성능이 동급 최고 수준으로 우수.,POSITIVE,EXPERIENCE,"[""세척력"",""진동/소음"",""AI기능""]",[],false,"{""analyzed_at"":""2026-10-24T06:10:25.160Z"",""lg_mentioned"":true}",2026-10-24 06:10:25.935209+00'
     ];
 
     return header + rows.join('\n');
+  },
+
+  /**
+   * 대시보드 시각화용 통합 인텔리전스 분석 지표 생성
+   * - 키워드 및 선택된 기간/채널에 맞춰 동적 집계치 제공
+   */
+  getDashboardAnalytics(keyword = 'LG 워시콤보', period = '1m', channel = 'all') {
+    const isWashCombo = !keyword || keyword.includes('워시') || keyword.includes('세탁') || keyword.includes('콤보') || keyword.includes('wash');
+    
+    // 기간별 스케일 계수
+    let scale = 1.0;
+    let periodDaysText = '최근 1개월';
+    let dateRangeText = '2026-09-26 ~ 2026-10-25';
+    if (period === '7d') {
+      scale = 0.28;
+      periodDaysText = '최근 7일';
+      dateRangeText = '2026-10-19 ~ 2026-10-25';
+    } else if (period === '3m') {
+      scale = 2.8;
+      periodDaysText = '최근 3개월';
+      dateRangeText = '2026-07-26 ~ 2026-10-25';
+    } else if (period === '6m') {
+      scale = 5.2;
+      periodDaysText = '최근 6개월';
+      dateRangeText = '2026-04-26 ~ 2026-10-25';
+    } else if (period === '1y') {
+      scale = 9.8;
+      periodDaysText = '최근 1년';
+      dateRangeText = '2025-10-26 ~ 2026-10-25';
+    }
+
+    // 채널 필터에 따른 비중 조정
+    let commRatio = 0.71;
+    let revRatio = 0.29;
+    if (channel === 'community') {
+      commRatio = 1.0;
+      revRatio = 0.0;
+    } else if (channel === 'reviews') {
+      commRatio = 0.0;
+      revRatio = 1.0;
+    }
+
+    const baseTotal = Math.round(1746 * scale);
+    const commTotal = Math.round(baseTotal * commRatio);
+    const revTotal = Math.round(baseTotal * revRatio);
+    const activeTotal = commTotal + revTotal;
+
+    // 시계열 추이 데이터 (15개 포인트)
+    const baseCommCurve = [35, 42, 68, 71, 48, 62, 63, 82, 115, 68, 55, 45, 63, 56, 32];
+    const baseRevCurve = [8, 12, 10, 8, 12, 11, 10, 15, 13, 11, 14, 12, 16, 12, 10];
+
+    const labels = [
+      '9월 26일', '9월 28일', '9월 30일', '10월 2일', '10월 5일', 
+      '10월 7일', '10월 9일', '10월 11일', '10월 13일', '10월 15일', 
+      '10월 17일', '10월 19일', '10월 21일', '10월 23일', '10월 25일'
+    ];
+
+    const commData = baseCommCurve.map(v => Math.round(v * scale * (commRatio > 0 ? 1 : 0)));
+    const revData = baseRevCurve.map(v => Math.round(v * scale * (revRatio > 0 ? 1 : 0)));
+    const totalData = commData.map((v, i) => v + revData[i]);
+
+    // 피크일 계산
+    let maxIdx = 8; // 10월 13일
+    let maxCount = totalData[maxIdx] || 128;
+    totalData.forEach((v, idx) => {
+      if (v > maxCount) {
+        maxCount = v;
+        maxIdx = idx;
+      }
+    });
+
+    const dailyAvg = Math.max(1, Math.round(activeTotal / 30));
+
+    // 긍정 / 중립 / 부정 비율
+    const posRate = 68.4;
+    const neuRate = 15.4;
+    const negRate = 16.2;
+    const posCount = Math.round(activeTotal * (posRate / 100));
+    const neuCount = Math.round(activeTotal * (neuRate / 100));
+    const negCount = activeTotal - posCount - neuCount;
+
+    // 긍정 키워드 1~5순위 & 부정 키워드 1~5순위
+    const positiveKeywords = isWashCombo ? [
+      { rank: 1, keyword: '올인원 세탁건조', count: Math.round(382 * scale), percent: 32, desc: '의류 이동 없이 한 번에 건조까지 끝나는 압도적 편의성' },
+      { rank: 2, keyword: '중앙 조작부(센터컨트롤)', count: Math.round(298 * scale), percent: 25, desc: '키가 작아도 손쉬운 중간 조작부의 인체공학적 설계' },
+      { rank: 3, keyword: '세탁실 공간 절약', count: Math.round(245 * scale), percent: 21, desc: '세탁기+건조기 일체형으로 협소한 세탁실 공간 2배 활용' },
+      { rank: 4, keyword: '저소음 / 인버터 DD', count: Math.round(156 * scale), percent: 13, desc: '밤 시간 취침 중에도 소음 걱정 없는 저진동 모터' },
+      { rank: 5, keyword: 'AI 맞춤 세탁 코스', count: Math.round(113 * scale), percent: 9, desc: '직물 재질 자동 감지 및 세제 자동 투입으로 옷감 보호' }
+    ] : [
+      { rank: 1, keyword: '압도적 명암비 / 제로블루밍', count: Math.round(410 * scale), percent: 34, desc: '올레드 자발광 픽셀의 완벽한 블랙 표현력' },
+      { rank: 2, keyword: '슬림 월마운트 갤러리 디자인', count: Math.round(320 * scale), percent: 26, desc: '벽에 밀착되는 얇은 베젤과 인테리어 완성도' },
+      { rank: 3, keyword: '게이밍 퍼포먼스 (144Hz G-Sync)', count: Math.round(250 * scale), percent: 20, desc: '콘솔 및 PC 게임 반응속도 및 입력 지연 최소화' },
+      { rank: 4, keyword: '알파11 AI 프로세서 업스케일링', count: Math.round(160 * scale), percent: 13, desc: '저화질 영상의 선명한 4K 화질 복원력' },
+      { rank: 5, keyword: 'webOS 24 편의성 및 스마트허브', count: Math.round(98 * scale), percent: 7, desc: '빠른 앱 전환 및 음성 인식 검색 지원' }
+    ];
+
+    const negativeKeywords = isWashCombo ? [
+      { rank: 1, keyword: '두꺼운 이불 건조시간', count: Math.round(142 * scale), percent: 48, desc: '대용량 극세사 침구류 건조 시 2.5~3시간 이상 소요' },
+      { rank: 2, keyword: '초기 구매 가격 부담', count: Math.round(68 * scale), percent: 23, desc: '일반 분리형 세탁기 세트 대비 높은 출고가' },
+      { rank: 3, keyword: '세탁실 도어 규격', count: Math.round(34 * scale), percent: 12, desc: '배송 설치 시 구형 아파트 문턱/도어 폭 확인 필요' },
+      { rank: 4, keyword: '보풀 필터 청소 주기', count: Math.round(26 * scale), percent: 9, desc: '건조 주기마다 정기적인 보풀 필터 세척 권장' },
+      { rank: 5, keyword: 'ThinQ Wi-Fi 연동 지연', count: Math.round(23 * scale), percent: 8, desc: '간헐적인 원격 제어 앱 푸시 알림 딜레이' }
+    ] : [
+      { rank: 1, keyword: '실내 직사광 반사 / 눈부심', count: Math.round(120 * scale), percent: 42, desc: '밝은 거실 창문 역광 환경에서 반사 체감' },
+      { rank: 2, keyword: '고가 프리미엄 가격대', count: Math.round(82 * scale), percent: 29, desc: '경쟁 LCD/QLED TV 대비 가격 장벽' },
+      { rank: 3, keyword: '내장 스피커 저음역 아쉬움', count: Math.round(41 * scale), percent: 14, desc: '슬림 바디로 인해 외장 사운드바 구매 고려' },
+      { rank: 4, keyword: '매직 리모컨 호불호', count: Math.round(25 * scale), percent: 9, desc: '에어 마우스 포인터 조작 시 손목 피로도' },
+      { rank: 5, keyword: '설치 기사 벽면 타공 부담', count: Math.round(17 * scale), percent: 6, desc: '아트월 대리석 벽면 타공 시 사전 점검 필요' }
+    ];
+
+    // 전체 언급 키워드 태그 클러스터
+    const allKeywords = isWashCombo ? [
+      { tag: '#올인원편의성', sentiment: 'pos', count: 382 },
+      { tag: '#센터컨트롤', sentiment: 'pos', count: 298 },
+      { tag: '#세탁실공간절약', sentiment: 'pos', count: 245 },
+      { tag: '#저소음인버터', sentiment: 'pos', count: 156 },
+      { tag: '#AI맞춤세탁', sentiment: 'pos', count: 113 },
+      { tag: '#건조시간소요', sentiment: 'neg', count: 142 },
+      { tag: '#가격부담', sentiment: 'neg', count: 68 },
+      { tag: '#세탁실규격', sentiment: 'neu', count: 34 },
+      { tag: '#보풀필터', sentiment: 'neu', count: 26 },
+      { tag: '#자동세제투입', sentiment: 'pos', count: 89 },
+      { tag: '#히트펌프건조', sentiment: 'pos', count: 144 },
+      { tag: '#이불빨래', sentiment: 'neu', count: 72 },
+      { tag: '#ThinQ연동', sentiment: 'neu', count: 54 },
+      { tag: '#전기요금절감', sentiment: 'pos', count: 82 },
+      { tag: '#경쟁사비교(GE/삼성)', sentiment: 'neu', count: 120 }
+    ] : [
+      { tag: '#제로블루밍', sentiment: 'pos', count: 410 },
+      { tag: '#갤러리디자인', sentiment: 'pos', count: 320 },
+      { tag: '#게이밍144Hz', sentiment: 'pos', count: 250 },
+      { tag: '#알파11AI', sentiment: 'pos', count: 160 },
+      { tag: '#webOS24', sentiment: 'pos', count: 98 },
+      { tag: '#직사광반사', sentiment: 'neg', count: 120 },
+      { tag: '#가격부담', sentiment: 'neg', count: 82 },
+      { tag: '#사운드바필요', sentiment: 'neg', count: 41 },
+      { tag: '#매직리모컨', sentiment: 'neu', count: 35 },
+      { tag: '#G-Sync지원', sentiment: 'pos', count: 115 },
+      { tag: '#벽밀착설치', sentiment: 'pos', count: 88 },
+      { tag: '#돌비비전', sentiment: 'pos', count: 140 }
+    ];
+
+    // 채널별 반응 비교 요약
+    const channelComparison = {
+      community: {
+        channelName: '커뮤니티 (Community)',
+        siteExamples: 'Reddit r/Appliances, AVS Forum, Clien, Wykop',
+        totalCount: commTotal,
+        sharePercent: commRatio > 0 ? (channel === 'community' ? 100 : 71.0) : 0,
+        posRate: 64.2,
+        neuRate: 16.0,
+        negRate: 19.8,
+        discourseSummary: '실제 아파트/빌라 세탁실 공간 제약, 누수 및 진동 이슈, 경쟁사(Whirlpool/Samsung/GE)와의 가성비 및 내구성 솔직 비교 토론 중심.',
+        keyTags: ['#실사용공간', '#건조시간팁', '#타사비교', '#내구성질문'],
+        representativeQuote: isWashCombo 
+          ? '“콤보 모델 덕분에 세탁실이 두 배로 넓어졌습니다. 중앙 컨트롤러 덕에 키 작은 가족도 쓰기 편해요.” (Reddit r/Appliances)'
+          : '“G4 명암비는 압도적입니다. 거실 조명만 조금 조절하면 극장 이상의 몰입감을 줍니다.” (AVS Forum)'
+      },
+      reviews: {
+        channelName: '제품리뷰 (Product Reviews)',
+        siteExamples: 'Best Buy US, RTINGS, Home Depot, Danawa',
+        totalCount: revTotal,
+        sharePercent: revRatio > 0 ? (channel === 'reviews' ? 100 : 29.0) : 0,
+        posRate: 78.5,
+        neuRate: 12.0,
+        negRate: 9.5,
+        discourseSummary: '실구매 고객 평점 4.7/5점 기록. 배송 설치 만족도, 센터 컨트롤 패널 조작성, 세제 자동투입 시스템의 실용성에 대한 높은 구매 추천율.',
+        keyTags: ['#조작성우수', '#디자인만족', '#AI코스추천', '#배송설치'],
+        representativeQuote: isWashCombo
+          ? '“Replaced my old laundry set with the LG WashTower. Best decision ever. Quiet, sleek, and intuitive.” (Best Buy 5/5)'
+          : '“Outstanding picture quality and input lag. The best OLED TV for movies and gaming in 2026.” (RTINGS 8.8/10)'
+      }
+    };
+
+    return {
+      keyword,
+      period,
+      channel,
+      periodDaysText,
+      dateRangeText,
+      kpi: {
+        totalCount: activeTotal,
+        peakDate: labels[maxIdx] || '10월 13일',
+        peakCount: maxCount,
+        dailyAvg,
+        topChannel: commRatio >= revRatio ? '커뮤니티' : '제품리뷰',
+        topChannelShare: commRatio >= revRatio ? '71%' : '100%',
+        posRate,
+        neuRate,
+        negRate
+      },
+      trend: {
+        labels,
+        commData,
+        revData,
+        totalData,
+        peakIdx: maxIdx,
+        peakLabel: labels[maxIdx] || '10월 13일',
+        peakCount: maxCount
+      },
+      sentiment: {
+        posCount,
+        posRate,
+        neuCount,
+        neuRate,
+        negCount,
+        negRate
+      },
+      positiveKeywords,
+      negativeKeywords,
+      allKeywords,
+      channelComparison
+    };
   }
 };
 
 if (typeof window !== 'undefined') {
   window.MockData = MockData;
 }
+
 

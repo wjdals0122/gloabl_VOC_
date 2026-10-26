@@ -185,8 +185,15 @@ const App = {
     window.scrollTo(0, 0);
 
     if (tabId === 'tab-results') {
-      if (data && data.selectedSources) {
-        ResultsView.setTarget(data.country, data.product, data.selectedSources, data.autoStart !== false);
+      if (data) {
+        ResultsView.setTarget(
+          data.country || 'US',
+          data.keyword || data.product || 'LG 워시콤보',
+          data.selectedSources || [],
+          data.autoStart !== false,
+          data.period || '1m',
+          data.channel || 'all'
+        );
       }
     } else if (tabId === 'tab-scheduled') {
       if (typeof ScheduledReportsView !== 'undefined') {

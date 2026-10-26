@@ -4,9 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LG 글로벌 VOC 랩 | Global VOC Intelligence</title>
-  <meta name="description" content="LG 해외 고객 리뷰(VOC) 출처 탐색, 선별 및 수집 대시보드">
+  <meta name="description" content="LG 해외 고객 리뷰(VOC) 소셜 리스닝 및 인텔리전스 대시보드">
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌐</text></svg>">
+  <!-- Chart.js CDN: 인터랙티브 시계열 라인 차트 및 긍부정 도넛 차트 렌더링 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -64,7 +66,7 @@
   <main class="app-container" role="main">
 
     <!-- ----------------------------------------------------------------------
-         화면 1: 출처 탐색 및 선택
+         화면 1: VOC 탐색 (출처 선택 삭제, 기간 선택, 수집 채널 선택 3가지)
          ---------------------------------------------------------------------- -->
     <section class="tab-view-section active" id="tab-sources" aria-labelledby="nav-btn-sources">
       <!-- 메인 안내 문구 및 타이핑 헤더 -->
@@ -73,39 +75,78 @@
           <span class="sr-only">세계 곳곳의 고객 목소리를 찾아보세요.</span>
           <span class="typing-text-display" aria-hidden="true"></span><span class="typing-cursor" aria-hidden="true"></span>
         </h2>
-        <p class="search-hero-subtitle">국가와 제품을 입력하고, 원하는 출처를 선택해 VOC를 수집하세요.</p>
+        <p class="search-hero-subtitle">국가와 키워드를 입력하고, 기간 및 수집 채널을 선택해 VOC를 수집하세요.</p>
       </div>
 
-      <!-- 국가·제품 입력 영역 (Light Card) -->
+      <!-- 국가·키워드·기간·수집채널 입력 영역 (Light Card) -->
       <div class="search-control-card">
+        <!-- 상단 행: 대상 국가, 키워드, 수집 시작 버튼 -->
         <div class="search-form-row">
           <div class="form-group-country">
             <label class="form-label" for="input-country">대상 국가</label>
             <select id="input-country" class="input-select">
-              <option value="US">미국 (US)</option>
+              <option value="US" selected>미국 (US)</option>
+              <option value="KR">대한민국 (KR)</option>
               <option value="JP">일본 (JP)</option>
               <option value="DE">독일 (DE)</option>
               <option value="PL">폴란드 (PL)</option>
               <option value="UK">영국 (UK)</option>
               <option value="FR">프랑스 (FR)</option>
-              <option value="KR">대한민국 (KR)</option>
             </select>
           </div>
 
           <div class="form-group-product">
-            <label class="form-label" for="input-product">제품명</label>
-            <input type="text" id="input-product" class="input-text" placeholder="조사할 제품명을 입력하세요 (예: LG OLED evo G4)" value="LG OLED evo G4">
+            <label class="form-label" for="input-product">키워드</label>
+            <input type="text" id="input-product" class="input-text" placeholder="조사할 키워드를 입력하세요 (예: LG 워시콤보, LG OLED evo G4)" value="LG 워시콤보">
           </div>
 
           <div class="form-group-action">
             <button type="button" class="btn btn-primary btn-search" id="btn-discover-sources">
-              출처 찾기
+              🔍 VOC 수집 및 분석 시작
             </button>
+          </div>
+        </div>
+
+        <!-- 하단 행: 기간 선택 & 수집 채널 선택 (3가지 옵션) -->
+        <div class="search-filter-subrow">
+          <!-- 기간 선택 -->
+          <div class="filter-subgroup">
+            <label class="filter-subgroup-label" for="select-period">
+              <span class="filter-icon">📅</span> 기간 선택
+            </label>
+            <div class="period-select-wrap">
+              <select id="select-period" class="input-select select-compact">
+                <option value="7d">최근 7일</option>
+                <option value="1m" selected>최근 1개월</option>
+                <option value="3m">최근 3개월</option>
+                <option value="6m">최근 6개월</option>
+                <option value="1y">최근 1년</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 수집 채널 선택 (3가지 중 선택 가능) -->
+          <div class="filter-subgroup">
+            <label class="filter-subgroup-label" for="select-channel">
+              <span class="filter-icon">📡</span> 수집 채널 선택
+            </label>
+            <div class="channel-select-wrap">
+              <select id="select-channel" class="input-select select-compact">
+                <option value="all" selected>&gt; 커뮤니티 + 제품리뷰 (통합)</option>
+                <option value="community">&gt; 커뮤니티 (Reddit, 포럼, 카페)</option>
+                <option value="reviews">&gt; 제품리뷰 (가전몰, 전문리뷰)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 신속 가이드 안내 -->
+          <div class="search-quick-meta">
+            <span class="meta-dot">●</span> 실시간 AI 감성 분석 및 채널별 키워드 리포트 생성
           </div>
         </div>
       </div>
 
-      <!-- 출처 목록 테이블 영역 (SourceView 동적 렌더링) -->
+      <!-- VOC 탐색 하단 가이드 뷰 (SourceView 동적 렌더링) -->
       <div id="view-sources-content">
         <!-- JS SourceView 렌더링 -->
       </div>

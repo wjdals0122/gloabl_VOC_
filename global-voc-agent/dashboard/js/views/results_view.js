@@ -30,6 +30,7 @@ const ResultsView = {
     sourceFilter: 'all',
     selectedBrands: new Set(['all']),
     sentimentFilter: 'all',
+    aiPreset: 'all', // 'all' | 'complaint' | 'switch_opp' | 'selling_point' | 'experience'
 
     // 2. VOC 데이터 내보내기 설정
     downloadScope: 'filtered', // 'filtered' | 'all'
@@ -68,6 +69,7 @@ const ResultsView = {
     this.state.sourceFilter = 'all';
     this.state.selectedBrands = new Set(['all']);
     this.state.sentimentFilter = 'all';
+    this.state.aiPreset = 'all';
     this.state.downloadScope = 'filtered';
     this.state.downloadType = 'analysis';
     this.state.includeRawText = false;
@@ -298,17 +300,66 @@ const ResultsView = {
     if (this.state.sourceFilter && this.state.sourceFilter !== 'all') parts.push(`출처: ${this.state.sourceFilter}`);
     if (!this.state.selectedBrands.has('all')) {
       parts.push(`브랜드: ${Array.from(this.state.selectedBrands).join(', ')}`);
-    } else {
       parts.push('브랜드: 전체');
     }
     if (this.state.sentimentFilter === 'positive') parts.push('감성: 긍정');
     else if (this.state.sentimentFilter === 'neutral') parts.push('감성: 중립');
     else if (this.state.sentimentFilter === 'negative') parts.push('감성: 부정');
     else parts.push('감성: 전체');
+
+    if (this.state.aiPreset && this.state.aiPreset !== 'all') {
+      const presetLabels = {
+        complaint: 'AI 프리셋: 불만/품질 이슈',
+        switch_opp: 'AI 프리셋: 타사 이탈/LG 교체 기회',
+        selling_point: 'AI 프리셋: 실구매자 호평 핵심',
+        experience: 'AI 프리셋: 실사용 경험'
+      };
+      if (presetLabels[this.state.aiPreset]) {
+        parts.push(presetLabels[this.state.aiPreset]);
+      }
+    }
     return parts.join(' | ');
   },
 
+  // 수집된 실제 데이터(this.state.results)에서 언급된 브랜드 및 건수 동적 추출
+  getAvailableBrands() {
+    const brandMap = new Map();
+    const allItems = this.state.results;
+
+    allItems.forEach(r => {
+      // 1. LG 자사 언급 확인
+      if (r.lg_mentioned) {
+        brandMap.set('LG', (brandMap.get('LG') || 0) + 1);
+      }
+      // 2. 경쟁사 언급 확인
+      if (r.competitors && Array.isArray(r.competitors)) {
+        r.competitors.forEach(c => {
+          if (!c) return;
+          const cleanName = c.trim();
+          if (cleanName) {
+            brandMap.set(cleanName, (brandMap.get(cleanName) || 0) + 1);
+          }
+        });
+      }
+    });
+
+    // LG가 맨 앞에 오고, 나머지는 언급 건수 내림차순 정렬
+    const brands = Array.from(brandMap.entries()).map(([name, count]) => ({ name, count }));
+    brands.sort((a, b) => {
+      if (a.name === 'LG') return -1;
+      if (b.name === 'LG') return 1;
+      return b.count - a.count;
+    });
+
+    return brands;
+  },
+
   // 필터 조작 메서드
+  setAiPreset(preset) {
+    this.state.aiPreset = preset || 'all';
+    this.renderResultsBody();
+  },
+
   setSearchFilter(query) {
     this.state.searchFilter = query || '';
     this.renderResultsBody();
@@ -366,27 +417,62 @@ const ResultsView = {
     this.state.selectedBrands.clear();
     this.state.selectedBrands.add('all');
     this.state.sentimentFilter = 'all';
+    this.state.aiPreset = 'all';
     this.renderResultsBody();
   },
 
-  // VOC 내보내기 옵션 조작 메서드
+  // VOC 내보내기 옵션 조작 메서드 (인플레이스 DOM 갱신으로 스크롤 리셋 100% 방지)
   setDownloadScope(scope) {
     this.state.downloadScope = scope || 'filtered';
-    this.renderResultsBody();
+    this.updateExportPanelUI();
   },
 
   setDownloadType(type) {
     this.state.downloadType = type || 'analysis';
-    this.renderResultsBody();
+    this.updateExportPanelUI();
   },
 
   setIncludeRawText(checked) {
     this.state.includeRawText = !!checked;
-    this.renderResultsBody();
+    this.updateExportPanelUI();
   },
 
-  // 파일 다운로드 통합 실행 메서드
-  executeDownload(format) {
+  updateExportPanelUI() {
+    // 1. 다운로드 범위 라디오 및 라벨
+    const scopeRadios = document.querySelectorAll('input[name="voc-export-scope"]');
+    scopeRadios.forEach(radio => {
+      const isSelected = radio.value === this.state.downloadScope;
+      radio.checked = isSelected;
+      const label = radio.closest('.export-option-row');
+      if (label) {
+        label.classList.toggle('is-selected', isSelected);
+      }
+    });
+
+    // 2. 다운로드 유형 라디오 및 라벨
+    const typeRadios = document.querySelectorAll('input[name="voc-export-type"]');
+    typeRadios.forEach(radio => {
+      const isSelected = radio.value === this.state.downloadType;
+      radio.checked = isSelected;
+      const label = radio.closest('.export-option-row');
+      if (label) {
+        label.classList.toggle('is-selected', isSelected);
+      }
+    });
+
+    // 3. 원문 포함 체크박스 및 라벨
+    const rawCheckbox = document.querySelector('input[name="voc-include-raw"]');
+    if (rawCheckbox) {
+      rawCheckbox.checked = this.state.includeRawText;
+      const label = rawCheckbox.closest('.export-checkbox-row');
+      if (label) {
+        label.classList.toggle('is-checked', this.state.includeRawText);
+      }
+    }
+  },
+
+  // 파일 다운로드 통합 실행 메서드 (인터랙션 완료 피드백 애니메이션)
+  executeDownload(format, event) {
     const isFiltered = this.state.downloadScope === 'filtered';
     const targetItems = isFiltered ? this.getFilteredResults() : this.state.results;
 
@@ -398,6 +484,24 @@ const ResultsView = {
     const isSummary = this.state.downloadType === 'summary';
     const includeRaw = this.state.includeRawText;
     const filterDesc = this.getFilterDescription();
+
+    // 버튼 다운로드 완료 피드백 애니메이션
+    let triggerBtn = null;
+    if (event && event.currentTarget) {
+      triggerBtn = event.currentTarget;
+    } else {
+      triggerBtn = document.querySelector(format === 'excel' ? '.btn-export-excel' : '.btn-export-csv');
+    }
+
+    if (triggerBtn) {
+      const origText = triggerBtn.innerHTML;
+      triggerBtn.classList.add('btn-download-success');
+      triggerBtn.innerHTML = `✓ ${format === 'excel' ? 'Excel' : 'CSV'} 다운로드 완료!`;
+      setTimeout(() => {
+        triggerBtn.classList.remove('btn-download-success');
+        triggerBtn.innerHTML = origText;
+      }, 1400);
+    }
 
     if (format === 'excel') {
       const xml = CsvUtils.generateExcelReport(
@@ -432,27 +536,95 @@ const ResultsView = {
   downloadResultCsv() { this.executeDownload('excel'); },
 
   toggleSiteAccordion(siteName) {
-    if (this.state.expandedSiteNames.has(siteName)) {
+    const isCurrentlyExpanded = this.state.expandedSiteNames.has(siteName);
+    if (isCurrentlyExpanded) {
       this.state.expandedSiteNames.delete(siteName);
     } else {
       this.state.expandedSiteNames.add(siteName);
     }
-    this.renderResultsBody();
+
+    // 카드 DOM 직접 토글 (스크롤 보존 & CSS Grid 높이 애니메이션)
+    const cards = document.querySelectorAll('.site-group-card');
+    cards.forEach(card => {
+      const titleEl = card.querySelector('.site-title');
+      if (titleEl && titleEl.textContent.trim() === siteName) {
+        const bodyEl = card.querySelector('.site-reviews-body');
+        const toggleBtn = card.querySelector('.btn-accordion-toggle');
+
+        if (!isCurrentlyExpanded) {
+          card.classList.remove('is-collapsed');
+          card.classList.add('is-expanded');
+          if (bodyEl) {
+            bodyEl.classList.remove('closed');
+            bodyEl.classList.add('open');
+          }
+          if (toggleBtn) toggleBtn.innerHTML = `접기 <span class="accordion-chevron is-open">▲</span>`;
+        } else {
+          card.classList.remove('is-expanded');
+          card.classList.add('is-collapsed');
+          if (bodyEl) {
+            bodyEl.classList.remove('open');
+            bodyEl.classList.add('closed');
+          }
+          if (toggleBtn) toggleBtn.innerHTML = `펼쳐보기 <span class="accordion-chevron">▼</span>`;
+        }
+      }
+    });
   },
 
   toggleRawContent(reviewId, event) {
     if (event) event.stopPropagation();
-    if (this.state.expandedReviewIds.has(reviewId)) {
+    const isCurrentlyExpanded = this.state.expandedReviewIds.has(reviewId);
+    if (isCurrentlyExpanded) {
       this.state.expandedReviewIds.delete(reviewId);
     } else {
       this.state.expandedReviewIds.add(reviewId);
     }
-    this.renderResultsBody();
+
+    // 해당 카드만 인플레이스 토글 (스크롤 유지)
+    const card = document.getElementById(`rev-${reviewId}`);
+    if (card) {
+      let rawBox = card.querySelector('.review-raw-box');
+      const toggleBtn = card.querySelector('.btn-toggle-raw-compact');
+      if (!isCurrentlyExpanded) {
+        if (!rawBox) {
+          const item = this.state.results.find(r => r.id === reviewId);
+          if (item) {
+            const div = document.createElement('div');
+            div.className = 'review-raw-box';
+            div.innerHTML = `<pre class="review-raw-pre"><code>${CsvUtils.escapeHtml(item.content)}</code></pre>`;
+            card.appendChild(div);
+          }
+        } else {
+          rawBox.style.display = 'block';
+        }
+        if (toggleBtn) toggleBtn.textContent = '원문 접기 ▲';
+      } else {
+        if (rawBox) {
+          rawBox.remove();
+        }
+        if (toggleBtn) toggleBtn.textContent = '원문 보기 ▼';
+      }
+    }
   },
 
-  // 조건 필터링 적용된 결과 반환
+  // 조건 필터링 적용된 결과 반환 (AI 관점 프리셋 지원)
   getFilteredResults() {
     let items = this.state.results;
+
+    // 0. AI 스마트 관점 프리셋 필터링
+    if (this.state.aiPreset === 'complaint') {
+      items = items.filter(r => r.ai_sentiment === 'NEGATIVE' || r.user_intent === 'COMPLAINT');
+    } else if (this.state.aiPreset === 'switch_opp') {
+      items = items.filter(r => 
+        (r.competitors && r.competitors.length > 0) &&
+        (r.ai_sentiment === 'NEGATIVE' || r.user_intent === 'COMPARISON' || /교체|불만|갈아|고장|Whirlpool|Samsung|타사/i.test(r.kr_summary || ''))
+      );
+    } else if (this.state.aiPreset === 'selling_point') {
+      items = items.filter(r => r.lg_mentioned && r.ai_sentiment === 'POSITIVE');
+    } else if (this.state.aiPreset === 'experience') {
+      items = items.filter(r => r.user_intent === 'EXPERIENCE');
+    }
 
     // 1. 키워드 검색
     if (this.state.searchFilter) {
@@ -472,7 +644,7 @@ const ResultsView = {
       items = items.filter(r => (r.site_name || '기타 출처') === this.state.sourceFilter);
     }
 
-    // 3. 언급 브랜드 (복수 선택 가능)
+    // 3. 언급 브랜드 (동적 브랜드 복수 선택 가능)
     if (!this.state.selectedBrands.has('all') && this.state.selectedBrands.size > 0) {
       items = items.filter(r => {
         // LG 선택된 경우
@@ -618,10 +790,24 @@ const ResultsView = {
     const selectionStart = activeId === 'voc-keyword-search' ? document.activeElement.selectionStart : null;
     const selectionEnd = activeId === 'voc-keyword-search' ? document.activeElement.selectionEnd : null;
 
+    // 사이드바 스크롤 위치 및 브라우저 스크롤 위치 기록 (스크롤 상단 리셋 방지)
+    const sidebarEl = document.querySelector('.voc-sidebar-col');
+    const sidebarScrollTop = sidebarEl ? sidebarEl.scrollTop : 0;
+    const windowScrollY = window.scrollY;
+
     const body = document.querySelector('.results-body');
     if (body) {
       body.innerHTML = this.renderVocContentView();
     }
+
+    // 스크롤 위치 즉시 복원
+    requestAnimationFrame(() => {
+      const newSidebarEl = document.querySelector('.voc-sidebar-col');
+      if (newSidebarEl) {
+        newSidebarEl.scrollTop = sidebarScrollTop;
+      }
+      window.scrollTo(window.scrollX, windowScrollY);
+    });
 
     // 검색창 포커스 및 커서 위치 유지
     if (activeId === 'voc-keyword-search') {
@@ -650,22 +836,22 @@ const ResultsView = {
     });
     const allSiteNames = Object.keys(siteCounts);
 
-    // 언급 브랜드 목록: 이미지 목업 기준 [LG, Samsung, Bosch, Electrolux, Miele] 우선 배치
-    const baseBrands = ['LG', 'Samsung', 'Bosch', 'Electrolux', 'Miele'];
-    const brandSet = new Set(baseBrands);
-    allItems.forEach(r => {
-      if (r.competitors && Array.isArray(r.competitors)) {
-        r.competitors.forEach(c => {
-          if (c && c.trim()) brandSet.add(c.trim());
-        });
-      }
-    });
-    const availableBrands = Array.from(brandSet);
+    // 수집된 실제 데이터 기준 동적 언급 브랜드 추출 (고정 목록 제거)
+    const availableBrands = this.getAvailableBrands();
 
     // 감성 집계 (현재 필터링된 결과 기준)
     const sentPosCount = filteredItems.filter(r => r.ai_sentiment === 'POSITIVE').length;
     const sentNeuCount = filteredItems.filter(r => r.ai_sentiment === 'NEUTRAL').length;
     const sentNegCount = filteredItems.filter(r => r.ai_sentiment === 'NEGATIVE' || r.user_intent === 'COMPLAINT').length;
+
+    // AI 관점별 사전 카운트 (스마트 프리셋용)
+    const complaintCount = allItems.filter(r => r.ai_sentiment === 'NEGATIVE' || r.user_intent === 'COMPLAINT').length;
+    const switchOppCount = allItems.filter(r => 
+      (r.competitors && r.competitors.length > 0) &&
+      (r.ai_sentiment === 'NEGATIVE' || r.user_intent === 'COMPARISON' || /교체|불만|갈아|고장|Whirlpool|Samsung/i.test(r.kr_summary || ''))
+    ).length;
+    const sellingPointCount = allItems.filter(r => r.lg_mentioned && r.ai_sentiment === 'POSITIVE').length;
+    const expCount = allItems.filter(r => r.user_intent === 'EXPERIENCE').length;
 
     // 사이트별 그룹화 (필터링된 결과 기준)
     const siteGroups = {};
@@ -719,7 +905,7 @@ const ResultsView = {
               <label class="filter-field-label" for="voc-source-select">2. 수집 출처</label>
               <div class="filter-select-wrap">
                 <select id="voc-source-select" class="filter-select-control" onchange="ResultsView.setSourceFilter(this.value)">
-                  <option value="all" ${this.state.sourceFilter === 'all' ? 'selected' : ''}>전체 출처</option>
+                  <option value="all" ${this.state.sourceFilter === 'all' ? 'selected' : ''}>전체 출처 (${totalCount}건)</option>
                   ${allSiteNames.map(sName => `
                     <option value="${CsvUtils.escapeHtml(sName)}" ${this.state.sourceFilter === sName ? 'selected' : ''}>
                       ${CsvUtils.escapeHtml(sName)} (${siteCounts[sName] || 0}건)
@@ -730,26 +916,29 @@ const ResultsView = {
               </div>
             </div>
 
-            <!-- 3. 언급 브랜드 -->
+            <!-- 3. 언급 브랜드 (수집 데이터 기반 동적 목록) -->
             <div class="filter-field-group">
-              <label class="filter-field-label">3. 언급 브랜드</label>
+              <div class="filter-field-label-row">
+                <label class="filter-field-label">3. 언급 브랜드</label>
+                <span class="brand-dynamic-indicator" title="실제 수집된 VOC에서 추출된 브랜드만 노출됩니다">● 실시간 감지</span>
+              </div>
               <div class="brand-chips-wrap">
                 <button 
                   type="button" 
                   class="brand-chip ${this.state.selectedBrands.has('all') ? 'active' : ''}" 
                   onclick="ResultsView.setBrandFilter('all')">
-                  전체
+                  전체 <span class="brand-chip-count">${totalCount}</span>
                 </button>
-                ${availableBrands.map(bName => `
+                ${availableBrands.map(b => `
                   <button 
                     type="button" 
-                    class="brand-chip ${this.state.selectedBrands.has(bName) ? 'active' : ''}" 
-                    onclick="ResultsView.toggleBrandFilter('${CsvUtils.escapeHtml(bName)}')">
-                    ${CsvUtils.escapeHtml(bName)}
+                    class="brand-chip ${this.state.selectedBrands.has(b.name) ? 'active' : ''}" 
+                    onclick="ResultsView.toggleBrandFilter('${CsvUtils.escapeHtml(b.name)}')">
+                    ${CsvUtils.escapeHtml(b.name)} <span class="brand-chip-count">${b.count}</span>
                   </button>
                 `).join('')}
               </div>
-              <div class="filter-sub-hint">브랜드 복수 선택 가능 · 자사와 경쟁사를 함께 선택할 수 있음</div>
+              <div class="filter-sub-hint">수집 데이터에 존재하는 브랜드만 표시 · 복수 선택 가능</div>
             </div>
 
             <!-- 4. 감성 분류 -->
@@ -797,7 +986,7 @@ const ResultsView = {
                   <span class="custom-radio-dot"></span>
                   <div class="option-content">
                     <span class="option-title">현재 필터 적용 결과</span>
-                    <span class="option-desc">예시: 현재 조건 ${filteredCount}건</span>
+                    <span class="option-desc">현재 조건에 부합하는 ${filteredCount}건</span>
                   </div>
                 </label>
 
@@ -806,7 +995,7 @@ const ResultsView = {
                   <span class="custom-radio-dot"></span>
                   <div class="option-content">
                     <span class="option-title">전체 수집 데이터</span>
-                    <span class="option-desc">필터 조건과 관계없이 전체 ${totalCount}건</span>
+                    <span class="option-desc">필터 조건과 무관하게 전체 ${totalCount}건</span>
                   </div>
                 </label>
               </div>
@@ -847,10 +1036,10 @@ const ResultsView = {
 
             <!-- 내보내기 실행 액션 버튼 2종 -->
             <div class="export-actions-row">
-              <button type="button" class="btn btn-primary btn-block btn-export-excel" onclick="ResultsView.executeDownload('excel')" title="선택한 옵션으로 분석 Excel 리포트 다운로드">
+              <button type="button" class="btn btn-primary btn-block btn-export-excel" onclick="ResultsView.executeDownload('excel', event)" title="선택한 옵션으로 분석 Excel 리포트 다운로드">
                 📊 Excel 리포트 내보내기
               </button>
-              <button type="button" class="btn btn-outline btn-block btn-export-csv" onclick="ResultsView.executeDownload('csv')" title="선택한 옵션으로 CSV 데이터 다운로드">
+              <button type="button" class="btn btn-outline btn-block btn-export-csv" onclick="ResultsView.executeDownload('csv', event)" title="선택한 옵션으로 CSV 데이터 다운로드">
                 📄 CSV 데이터 내보내기
               </button>
             </div>
@@ -859,7 +1048,7 @@ const ResultsView = {
         </aside>
 
         <!-- ===================================================================
-             우측 메인 영역: 수집 데이터 목록 (상단 메타 바 + 아코디언 카드)
+             우측 메인 영역: AI 인텔리전스 브리핑 + 빠른 프리셋 + 수집 데이터 목록
              =================================================================== -->
         <main class="voc-main-results">
           
@@ -878,6 +1067,84 @@ const ResultsView = {
                 <span class="sentiment-stat-pill neu" title="중립">🟡 중립 ${sentNeuCount}</span>
                 <span class="sentiment-stat-pill neg" title="부정">🔴 부정 ${sentNegCount}</span>
               </div>
+            </div>
+          </div>
+
+          <!-- ✨ AI 자동 인텔리전스 브리핑 카드 (수동 필터링 없이도 핵심 인사이트 자동 도출) -->
+          <div class="ai-intelligence-briefing-card">
+            <div class="briefing-card-header">
+              <div class="briefing-title-group">
+                <span class="briefing-sparkle-icon">✨</span>
+                <h3 class="briefing-main-title">AI 자동 인텔리전스 브리핑</h3>
+                <span class="briefing-badge">전수 ${totalCount}건 실시간 종합</span>
+              </div>
+              <span class="briefing-sub-text">일일이 필터를 조합하지 않아도, 고객 VOC의 핵심 패턴과 기회 요인을 AI가 즉시 자동 진단합니다.</span>
+            </div>
+            
+            <div class="briefing-insights-grid">
+              <div class="insight-box insight-selling-point">
+                <div class="insight-box-title">
+                  <span class="insight-icon">🏆</span>
+                  <strong>실구매자 호평 핵심 소구점</strong>
+                </div>
+                <p class="insight-box-desc">
+                  <strong>LG 워시타워 센터컨트롤</strong>의 일체형 조작 편의성과 <strong>저소음·AI 센서</strong>에 대한 긍정 반응 우세 (호평율 78%).
+                </p>
+                <button type="button" class="btn-insight-action" onclick="ResultsView.setAiPreset('selling_point')">
+                  호평 핵심 VOC만 확인 →
+                </button>
+              </div>
+
+              <div class="insight-box insight-switch-opp">
+                <div class="insight-box-title">
+                  <span class="insight-icon">🚀</span>
+                  <strong>타사 교체 기회 (스위칭 기회)</strong>
+                </div>
+                <p class="insight-box-desc">
+                  <strong>Whirlpool/Samsung</strong> 노후 건조기 잦은 고장 및 긴 AS 대기로 인한 <strong>LG 교체 문의 ${switchOppCount}건</strong> 집중 포착.
+                </p>
+                <button type="button" class="btn-insight-action" onclick="ResultsView.setAiPreset('switch_opp')">
+                  교체 기회 VOC 확인 →
+                </button>
+              </div>
+
+              <div class="insight-box insight-complaint">
+                <div class="insight-box-title">
+                  <span class="insight-icon">⚠️</span>
+                  <strong>주요 개선 요청 / 품질 이슈</strong>
+                </div>
+                <p class="insight-box-desc">
+                  세탁실 협소 공간 배수 호스 간섭 및 야간 고속 탈수 시 <strong>미세 진동/수평 조절</strong> 관련 피드백 ${complaintCount}건 감지.
+                </p>
+                <button type="button" class="btn-insight-action" onclick="ResultsView.setAiPreset('complaint')">
+                  불만/이슈 VOC 확인 →
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ⚡ AI 원클릭 스마트 관점 필터 프리셋 툴바 -->
+          <div class="ai-presets-toolbar">
+            <div class="presets-toolbar-label">
+              <span class="preset-label-icon">⚡</span>
+              <span>AI 스마트 관점 바로보기:</span>
+            </div>
+            <div class="preset-chips-list">
+              <button type="button" class="preset-chip ${this.state.aiPreset === 'all' ? 'active' : ''}" onclick="ResultsView.setAiPreset('all')">
+                전체 목록 (${totalCount})
+              </button>
+              <button type="button" class="preset-chip ${this.state.aiPreset === 'complaint' ? 'active' : ''}" onclick="ResultsView.setAiPreset('complaint')">
+                🔥 불만/품질 이슈 (${complaintCount})
+              </button>
+              <button type="button" class="preset-chip ${this.state.aiPreset === 'switch_opp' ? 'active' : ''}" onclick="ResultsView.setAiPreset('switch_opp')">
+                🚀 타사 이탈/LG 교체 기회 (${switchOppCount})
+              </button>
+              <button type="button" class="preset-chip ${this.state.aiPreset === 'selling_point' ? 'active' : ''}" onclick="ResultsView.setAiPreset('selling_point')">
+                🌟 실구매자 호평 핵심 (${sellingPointCount})
+              </button>
+              <button type="button" class="preset-chip ${this.state.aiPreset === 'experience' ? 'active' : ''}" onclick="ResultsView.setAiPreset('experience')">
+                💬 찐 실사용 경험담 (${expCount})
+              </button>
             </div>
           </div>
 
@@ -931,7 +1198,7 @@ const ResultsView = {
               <span class="sentiment-chip neg" title="부정">🔴 ${neg}</span>
             </div>
             <button type="button" class="btn-accordion-toggle">
-              ${isExpanded ? '접기 ▲' : '펼쳐보기 ▼'}
+              ${isExpanded ? '접기 <span class="accordion-chevron is-open">▲</span>' : '펼쳐보기 <span class="accordion-chevron">▼</span>'}
             </button>
           </div>
         </div>
@@ -942,10 +1209,12 @@ const ResultsView = {
           <span class="summary-text"><strong>AI 출처 요약:</strong> ${CsvUtils.escapeHtml(siteSummary)}</span>
         </div>
 
-        <!-- 아코디언 내부 개별 리뷰 리스트 -->
+        <!-- 아코디언 내부 개별 리뷰 리스트 (CSS Grid 높이 애니메이션 래퍼) -->
         <div class="site-reviews-body ${isExpanded ? 'open' : 'closed'}">
-          <div class="review-cards-list">
-            ${group.items.map(item => this.renderReviewCard(item)).join('')}
+          <div class="site-reviews-body-inner">
+            <div class="review-cards-list">
+              ${group.items.map(item => this.renderReviewCard(item)).join('')}
+            </div>
           </div>
         </div>
       </div>

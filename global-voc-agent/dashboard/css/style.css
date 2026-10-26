@@ -3884,6 +3884,425 @@ input:checked + .slider:before {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
+/* ==========================================================================
+   자연스러운 인터랙션 모션 & AI 브리핑 카드 스타일 (Emil Kowalski 애니메이션 철학)
+   ========================================================================== */
 
+/* 1. 인터랙티브 요소 프레스(Active) 스케일 피드백 */
+.btn, 
+.brand-chip, 
+.preset-chip, 
+.btn-insight-action, 
+.btn-accordion-toggle, 
+.btn-toggle-raw-compact,
+.source-chip {
+  transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1), 
+              background-color 160ms ease, 
+              border-color 160ms ease, 
+              box-shadow 160ms ease;
+}
 
+.btn:active, 
+.brand-chip:active, 
+.preset-chip:active, 
+.btn-insight-action:active, 
+.btn-accordion-toggle:active,
+.btn-toggle-raw-compact:active {
+  transform: scale(0.97);
+}
 
+/* 2. 카드 렌더링/필터 전환 시 부드러운 페이드인 애니메이션 */
+@keyframes cardAppear {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.voc-review-card {
+  animation: cardAppear 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* 3. 사이트 아코디언 높이 애니메이션 (CSS Grid 0fr -> 1fr) */
+.site-reviews-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+.site-reviews-body.open {
+  grid-template-rows: 1fr;
+}
+
+.site-reviews-body.closed {
+  grid-template-rows: 0fr;
+}
+
+.site-reviews-body-inner {
+  min-height: 0;
+}
+
+.accordion-chevron {
+  display: inline-block;
+  font-size: 10px;
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  margin-left: 4px;
+}
+
+.accordion-chevron.is-open {
+  transform: rotate(180deg);
+}
+
+/* 4. 다운로드 완료 피드백 */
+.btn-download-success {
+  background-color: #10b981 !important;
+  border-color: #059669 !important;
+  color: #ffffff !important;
+  transform: scale(1.02);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35) !important;
+}
+
+/* 5. 동적 브랜드 뱃지 및 감지 인디케이터 */
+.filter-field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.brand-dynamic-indicator {
+  font-size: 11px;
+  font-weight: 600;
+  color: #059669;
+  background: #ecfdf5;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  border: 1px solid #a7f3d0;
+}
+
+.brand-chip-count {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 9999px;
+  background: rgba(15, 23, 42, 0.08);
+  color: #475569;
+  margin-left: 4px;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.brand-chip.active .brand-chip-count {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+/* 6. AI 자동 인텔리전스 브리핑 카드 */
+.ai-intelligence-briefing-card {
+  background: linear-gradient(135deg, #ffffff 0%, #fff7f9 100%);
+  border: 1px solid #fecdd3;
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 14px;
+  box-shadow: 0 2px 8px rgba(225, 29, 72, 0.04);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.ai-intelligence-briefing-card:hover {
+  border-color: #fda4af;
+  box-shadow: 0 4px 14px rgba(225, 29, 72, 0.08);
+}
+
+.briefing-card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.briefing-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.briefing-sparkle-icon {
+  font-size: 16px;
+  animation: sparkleRotate 3s infinite ease-in-out;
+}
+
+@keyframes sparkleRotate {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.15) rotate(12deg); }
+}
+
+.briefing-main-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #881337;
+  margin: 0;
+}
+
+.briefing-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #e11d48;
+  background: #ffe4e6;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  border: 1px solid #fecdd3;
+}
+
+.briefing-sub-text {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.briefing-insights-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 1024px) {
+  .briefing-insights-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.insight-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.insight-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.insight-box.insight-selling-point {
+  border-top: 3px solid #10b981;
+}
+
+.insight-box.insight-switch-opp {
+  border-top: 3px solid #6366f1;
+}
+
+.insight-box.insight-complaint {
+  border-top: 3px solid #f43f5e;
+}
+
+.insight-box-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 6px;
+}
+
+.insight-box-desc {
+  font-size: 12px;
+  line-height: 1.55;
+  color: #475569;
+  margin: 0 0 10px 0;
+  flex-grow: 1;
+}
+
+.insight-box-desc strong {
+  color: #0f172a;
+}
+
+.btn-insight-action {
+  align-self: flex-start;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+}
+
+.btn-insight-action:hover {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+
+/* 7. AI 원클릭 스마트 관점 필터 프리셋 툴바 */
+.ai-presets-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.presets-toolbar-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.preset-label-icon {
+  font-size: 13px;
+  color: #f59e0b;
+}
+
+.preset-chips-list {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.preset-chip {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 9999px;
+  padding: 4px 11px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+}
+
+.preset-chip:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.preset-chip.active {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
+}
+
+/* 8. 다크모드 대응 */
+[data-theme="dark"] .ai-intelligence-briefing-card {
+  background: linear-gradient(135deg, rgba(225, 29, 72, 0.08) 0%, rgba(30, 41, 59, 0.6) 100%);
+  border-color: rgba(225, 29, 72, 0.3);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .briefing-main-title {
+  color: #fda4af;
+}
+
+[data-theme="dark"] .briefing-badge {
+  background: rgba(225, 29, 72, 0.25);
+  border-color: rgba(225, 29, 72, 0.4);
+  color: #fecdd3;
+}
+
+[data-theme="dark"] .briefing-sub-text {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .insight-box {
+  background: var(--bg-surface);
+  border-color: var(--border-medium);
+}
+
+[data-theme="dark"] .insight-box:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .insight-box-title {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .insight-box-desc {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .insight-box-desc strong {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .btn-insight-action {
+  background: var(--bg-surface-elevated);
+  border-color: var(--border-medium);
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .btn-insight-action:hover {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #ffffff;
+}
+
+[data-theme="dark"] .ai-presets-toolbar {
+  background: var(--bg-surface);
+  border-color: var(--border-medium);
+}
+
+[data-theme="dark"] .presets-toolbar-label {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .preset-chip {
+  background: var(--bg-surface-elevated);
+  border-color: var(--border-medium);
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .preset-chip:hover {
+  background: var(--bg-surface-hover);
+  border-color: #64748b;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .preset-chip.active {
+  background: #f8fafc;
+  border-color: #f8fafc;
+  color: #0f172a;
+}
+
+[data-theme="dark"] .brand-dynamic-indicator {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #34d399;
+}
+
+[data-theme="dark"] .brand-chip-count {
+  background: rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .brand-chip.active .brand-chip-count {
+  background: rgba(0, 0, 0, 0.25);
+  color: #0f172a;
+}
+
+/* 9. 애니메이션 감소 환경 대응 */
+@media (prefers-reduced-motion: reduce) {
+  .btn, .brand-chip, .preset-chip, .btn-insight-action, .btn-accordion-toggle, .btn-toggle-raw-compact,
+  .voc-review-card, .site-reviews-body, .accordion-chevron, .briefing-sparkle-icon {
+    animation: none !important;
+    transition: none !important;
+  }
+}

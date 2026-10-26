@@ -7,8 +7,8 @@
    - 브랜드 로고 아이덴티티 및 상단 헤더 데모 모드 직접 토글 버튼
    - 검색 입력 카드 영역 시각적 강조 (Elevated Card + Accent Border)
    ========================================================================== */
-/* SUIT 웹폰트 및 구글 폰트 로드 */
-@import url('https://cdn.jsdelivr.net/gh/sun-typeface/SUIT@2/fonts/variable/woff2/SUIT-Variable.css');
+/* Chiron Hei HK 웹폰트 및 구글 폰트 로드 */
+@import url('https://fonts.googleapis.com/css2?family=Chiron+Hei+HK:ital,wght@0,200..900;1,200..900&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 /* LG Smart UI 웹폰트 로드 (로컬 시스템 폰트 및 웹폰트 폴더 직접 바인딩) */
@@ -75,18 +75,16 @@
   font-display: swap;
 }
 
-/* SUIT 로컬 설치 폰트 최우선 바인딩 (PC 설치 폰트 직접 연동) */
+/* Chiron Hei 로컬 및 웹폰트 바인딩 */
 @font-face {
-  font-family: 'SUIT';
+  font-family: 'Chiron Hei';
   font-weight: 100 900;
-  src: local('SUIT Variable'),
-       local('SUIT'),
-       local('SUIT-Regular'),
-       local('SUIT-Medium'),
-       local('SUIT-SemiBold'),
-       local('SUIT-Bold'),
-       local('SUIT Regular'),
-       url('https://cdn.jsdelivr.net/gh/sun-typeface/SUIT@2/fonts/variable/woff2/SUIT-Variable.woff2') format('woff2-variations');
+  font-style: normal;
+  src: local('Chiron Hei HK'),
+       local('Chiron Hei'),
+       local('ChironHeiHK-Variable'),
+       local('ChironHeiHK'),
+       url('https://fonts.gstatic.com/s/chironheihk/v1/raxAHiK9fL11zK6XhG_m4M9Z.woff2') format('woff2');
   font-display: swap;
 }
 
@@ -196,7 +194,7 @@
 }
 
 body, input, button, select, textarea {
-  font-family: 'SUIT Variable', 'SUIT', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Chiron Hei HK', 'Chiron Hei', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 body {
@@ -765,7 +763,7 @@ body {
 }
 
 .search-hero-title {
-  font-family: 'LG smart UI', 'LG Smart UI', 'SUIT Variable', 'SUIT', sans-serif;
+  font-family: 'LG smart UI', 'LG Smart UI', 'Chiron Hei HK', 'Chiron Hei', sans-serif;
   font-size: 45px;
   font-weight: 700;
   color: #111827;
@@ -814,9 +812,9 @@ body {
   50% { opacity: 0; }
 }
 
-/* 정적 서브 텍스트 (SUIT 폰트 적용) */
+/* 정적 서브 텍스트 (Chiron Hei 폰트 적용) */
 .search-hero-subtitle {
-  font-family: 'SUIT Variable', 'SUIT', sans-serif;
+  font-family: 'Chiron Hei HK', 'Chiron Hei', sans-serif;
   font-size: 16px;
   color: var(--text-muted);
   letter-spacing: 0.005em;
@@ -944,7 +942,7 @@ body {
 }
 
 .table-title {
-  font-family: 'SUIT Variable', 'SUIT', sans-serif;
+  font-family: 'Chiron Hei HK', 'Chiron Hei', sans-serif;
   font-size: 17.5px;
   font-weight: 800;
   color: #111827;
@@ -1412,7 +1410,7 @@ body {
 }
 
 .progress-main-heading {
-  font-family: 'SUIT Variable', 'SUIT', sans-serif;
+  font-family: 'Chiron Hei HK', 'Chiron Hei', sans-serif;
   font-size: 16px;
   font-weight: 700;
   color: var(--text-main);
@@ -1576,7 +1574,7 @@ body {
 }
 
 .results-section-title {
-  font-family: 'SUIT Variable', 'SUIT', sans-serif;
+  font-family: 'Chiron Hei HK', 'Chiron Hei', sans-serif;
   font-size: 18px;
   font-weight: 700;
   color: #111827; /* 검은색 폰트 부제목 */
@@ -1911,7 +1909,7 @@ body {
   font-weight: 800;
   color: #0f172a;
   margin: 0;
-  font-family: 'LG smart UI', 'LG Smart UI', 'SUIT Variable', 'SUIT', sans-serif;
+  font-family: 'LG smart UI', 'LG Smart UI', 'Chiron Hei HK', 'Chiron Hei', sans-serif;
 }
 
 .site-count-pill {
@@ -2246,7 +2244,7 @@ body {
 
 .review-raw-pre {
   margin: 0;
-  font-family: 'JetBrains Mono', 'SUIT Variable', 'SUIT', monospace;
+  font-family: 'JetBrains Mono', 'Chiron Hei HK', 'Chiron Hei', monospace;
   font-size: 12px;
   color: #334155;
   white-space: pre-wrap;
@@ -2571,7 +2569,7 @@ input:checked + .slider:before {
 }
 
 .scheduled-hero-title {
-  font-family: 'LG smart UI', 'LG Smart UI', 'SUIT Variable', 'SUIT', sans-serif;
+  font-family: 'LG smart UI', 'LG Smart UI', 'Chiron Hei HK', 'Chiron Hei', sans-serif;
   font-size: 26px;
   font-weight: 800;
   color: #111827;
@@ -2602,7 +2600,7 @@ input:checked + .slider:before {
 }
 
 .card-section-title {
-  font-family: 'LG smart UI', 'LG Smart UI', 'SUIT Variable', 'SUIT', sans-serif;
+  font-family: 'LG smart UI', 'LG Smart UI', 'Chiron Hei HK', 'Chiron Hei', sans-serif;
   font-size: 17.5px;
   font-weight: 800;
   color: #111827;
@@ -2749,7 +2747,7 @@ input:checked + .slider:before {
 }
 
 .scheduled-section-header .section-title {
-  font-family: 'LG smart UI', 'LG Smart UI', 'SUIT Variable', 'SUIT', sans-serif;
+  font-family: 'LG smart UI', 'LG Smart UI', 'Chiron Hei HK', 'Chiron Hei', sans-serif;
   font-size: 17.5px;
   font-weight: 800;
   color: #111827;
@@ -3730,7 +3728,7 @@ input:checked + .slider:before {
 }
 
 .panel-card-title {
-  font-family: 'LG smart UI', 'LG Smart UI', 'SUIT Variable', 'SUIT', sans-serif;
+  font-family: 'LG smart UI', 'LG Smart UI', 'Chiron Hei HK', 'Chiron Hei', sans-serif;
   font-size: 14px;
   font-weight: 800;
   color: #0f172a;

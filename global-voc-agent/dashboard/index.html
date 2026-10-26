@@ -37,11 +37,11 @@
         <!-- 2. 시각적 구분자 (두 탭과 묶이지 않도록 명확히 분리) -->
         <div class="nav-tab-divider" aria-hidden="true"></div>
 
-        <!-- 3. 구분된 독립 탭: 정기 리포트 예약 -->
-        <button type="button" class="nav-tab-standalone" id="nav-btn-scheduled" data-tab="tab-scheduled" title="원하는 주기(매주 월요일 09시 등)로 VOC를 자동 수집하여 이메일로 받아보는 기능">
-          <span class="tab-icon">⏰</span>
-          <span>정기 리포트 예약</span>
-          <span class="scheduled-badge" id="nav-scheduled-badge">2</span>
+        <!-- 3. 구분된 독립 탭: 정기 모니터링 및 Slack 변동 알림 -->
+        <button type="button" class="nav-tab-standalone" id="nav-btn-scheduled" data-tab="tab-scheduled" title="설정한 국가와 키워드의 주간 VOC 추이를 자동 업데이트하고 변동 시 Slack으로 알림을 받는 기능">
+          <span class="tab-icon">🔔</span>
+          <span>정기 모니터링 &amp; Slack 알림</span>
+          <span class="scheduled-badge" id="nav-scheduled-badge">3</span>
         </button>
       </nav>
 
@@ -163,10 +163,10 @@
     </section>
 
     <!-- ----------------------------------------------------------------------
-         화면 3: 정기 리포트 예약 및 발송 내역 (독립 탭)
+         화면 3: 정기 모니터링 및 Slack 변동 알림 (독립 탭)
          ---------------------------------------------------------------------- -->
     <section class="tab-view-section" id="tab-scheduled" aria-labelledby="nav-btn-scheduled">
-      <!-- 정기 예약 관리 뷰 (ScheduledReportsView 동적 렌더링) -->
+      <!-- 정기 모니터링 관리 뷰 (ScheduledReportsView 동적 렌더링) -->
       <div id="view-scheduled-content">
         <!-- JS ScheduledReportsView 렌더링 -->
       </div>

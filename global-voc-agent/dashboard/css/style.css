@@ -2932,28 +2932,86 @@ input:checked + .slider:before {
   white-space: nowrap;
 }
 
-/* 이메일 */
-.email-list {
+/* 주간 변동 감지 상태 뱃지 (Pill) */
+.delta-container {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
 }
 
-.email-chip {
+.delta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+  transition: all 0.15s ease;
+}
+
+.delta-dot {
+  width: 6.5px;
+  height: 6.5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.delta-pill.delta-changed {
+  background-color: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+.delta-pill.delta-changed .delta-dot {
+  background-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.delta-pill.delta-unchanged {
+  background-color: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+.delta-pill.delta-unchanged .delta-dot {
+  background-color: #94a3b8;
+}
+
+.delta-pill.delta-warning {
+  background-color: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+.delta-pill.delta-warning .delta-dot {
+  background-color: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
+/* Slack 채널 칩 */
+.slack-channel-wrap {
+  display: flex;
+  align-items: center;
+}
+
+.slack-chip {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  background-color: #f1f5f9;
-  color: #475569;
-  padding: 3px 8px;
-  border-radius: 4px;
-  width: fit-content;
+  font-weight: 600;
+  background-color: #f3f4f6;
+  color: #374151;
+  padding: 4px 9px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
   white-space: nowrap;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-.email-icon {
-  font-size: 11px;
+.slack-hash {
+  font-weight: 800;
+  color: #4a154b;
+  font-size: 13px;
 }
 
 /* 다음 실행 예약 (Soft blue pill, 2 lines) */
@@ -3022,12 +3080,58 @@ input:checked + .slider:before {
   white-space: nowrap;
 }
 
-.btn-action-test {
+.btn-action-dashboard {
+  background-color: #ab1736;
+  color: #ffffff;
+  border: 1px solid #94132e;
+  border-radius: 6px;
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(171, 23, 54, 0.2);
+}
+
+.btn-action-dashboard:hover {
+  background-color: #92132e;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(171, 23, 54, 0.3);
+}
+
+.btn-action-check {
   background-color: #ffffff;
-  color: #ab1736;
-  border: 1px solid #fda4af;
-  border-radius: 4px;
-  padding: 5px 12px;
+  color: #1e293b;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-action-check:hover:not(:disabled) {
+  background-color: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.btn-action-slack {
+  background-color: #ffffff;
+  color: #4a154b;
+  border: 1.5px solid #e9d5ff;
+  border-radius: 6px;
+  padding: 5px 10px;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -3039,17 +3143,17 @@ input:checked + .slider:before {
   justify-content: center;
 }
 
-.btn-action-test:hover:not(:disabled) {
-  background-color: #fff1f3;
-  border-color: #ab1736;
+.btn-action-slack:hover {
+  background-color: #faf5ff;
+  border-color: #c084fc;
 }
 
 .btn-action-delete {
   background-color: #ffffff;
   color: #94a3b8;
   border: 1px solid #e2e8f0;
-  border-radius: 4px;
-  padding: 5px 12px;
+  border-radius: 6px;
+  padding: 5px 9px;
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -3065,6 +3169,318 @@ input:checked + .slider:before {
   color: #e11d48;
   border-color: #fca5a5;
   background-color: #fff1f2;
+}
+
+/* ==========================================================================
+   Slack 알림 메시지 프리뷰 모달 (Figma / Slack 리얼 스타일)
+   ========================================================================== */
+.slack-preview-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeInModal 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.slack-preview-modal {
+  width: 100%;
+  max-width: 640px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  animation: scaleUpModal 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeInModal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleUpModal {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.slack-modal-topbar {
+  background-color: #350d36;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+}
+
+.slack-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slack-app-logo {
+  font-size: 15px;
+  font-weight: 800;
+  opacity: 0.85;
+}
+
+.slack-channel-title {
+  font-size: 14.5px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.slack-channel-badge {
+  font-size: 11px;
+  background-color: rgba(255, 255, 255, 0.16);
+  padding: 2px 7px;
+  border-radius: 4px;
+  color: #e5e7eb;
+}
+
+.slack-modal-close {
+  background: none;
+  border: none;
+  color: #ffffff;
+  font-size: 16px;
+  cursor: pointer;
+  opacity: 0.8;
+  padding: 4px;
+  border-radius: 4px;
+  transition: opacity 0.15s ease;
+}
+
+.slack-modal-close:hover {
+  opacity: 1;
+}
+
+.slack-modal-body {
+  padding: 24px;
+  background-color: #f8fafc;
+}
+
+.slack-message-bubble {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 18px;
+}
+
+.slack-avatar-col {
+  flex-shrink: 0;
+}
+
+.slack-bot-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #ab1736 0%, #c41d40 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+  box-shadow: 0 2px 6px rgba(171, 23, 54, 0.25);
+}
+
+.slack-content-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.slack-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.slack-bot-name {
+  font-size: 14px;
+  font-weight: 800;
+  color: #111827;
+}
+
+.slack-app-tag {
+  background-color: #e2e8f0;
+  color: #475569;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.slack-timestamp {
+  font-size: 11.5px;
+  color: #94a3b8;
+}
+
+.slack-lead-text {
+  font-size: 13.5px;
+  color: #1e293b;
+  margin-bottom: 12px;
+}
+
+/* 슬랙 리치 어태치먼트 */
+.slack-attachment-card {
+  border-left: 4px solid #10b981;
+  background-color: #f8fafc;
+  border-radius: 0 8px 8px 0;
+  padding: 14px 16px;
+  border-top: 1px solid #f1f5f9;
+  border-right: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.slack-attachment-card.attach-warning {
+  border-left-color: #f59e0b;
+}
+
+.slack-attach-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.attach-flag {
+  font-size: 14px;
+}
+
+.attach-title {
+  font-size: 14.5px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.slack-attach-desc {
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.45;
+  margin-bottom: 12px;
+}
+
+.slack-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.slack-stat-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.slack-stat-box.stat-span-2 {
+  grid-column: span 2;
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 8px;
+  margin-top: 2px;
+}
+
+.slack-stat-box .stat-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+.slack-stat-box .stat-val {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.slack-stat-box .stat-val.text-green {
+  color: #059669;
+}
+
+.slack-stat-box .stat-keywords {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.slack-attach-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.btn-slack-cta {
+  background-color: #059669;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-slack-cta:hover {
+  background-color: #047857;
+  transform: translateY(-1px);
+}
+
+.slack-hint-text {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.slack-modal-footer {
+  background-color: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.footer-tip {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.btn-slack-close {
+  background-color: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.btn-slack-close:hover {
+  background-color: #e2e8f0;
+  color: #1e293b;
 }
 
 /* 빈 상태 */
@@ -3162,6 +3578,106 @@ input:checked + .slider:before {
   background-color: var(--bg-surface);
   border-color: var(--border-medium);
   color: var(--text-muted);
+}
+
+[data-theme="dark"] .slack-preview-modal {
+  background-color: #1a1d21;
+  border-color: #383b40;
+}
+
+[data-theme="dark"] .slack-modal-topbar {
+  background-color: #121016;
+  border-bottom: 1px solid #383b40;
+}
+
+[data-theme="dark"] .slack-modal-body {
+  background-color: #222529;
+}
+
+[data-theme="dark"] .slack-message-bubble {
+  background-color: #1a1d21;
+  border-color: #383b40;
+}
+
+[data-theme="dark"] .slack-bot-name,
+[data-theme="dark"] .attach-title,
+[data-theme="dark"] .slack-stat-box .stat-val {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .slack-lead-text,
+[data-theme="dark"] .slack-attach-desc,
+[data-theme="dark"] .slack-stat-box .stat-keywords {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .slack-attachment-card {
+  background-color: #222529;
+  border-top-color: #383b40;
+  border-right-color: #383b40;
+  border-bottom-color: #383b40;
+}
+
+[data-theme="dark"] .slack-stats-grid {
+  background-color: #1a1d21;
+  border-color: #383b40;
+}
+
+[data-theme="dark"] .slack-modal-footer {
+  background-color: #1a1d21;
+  border-top-color: #383b40;
+}
+
+[data-theme="dark"] .slack-chip {
+  background-color: #1e293b;
+  color: #cbd5e1;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .slack-hash {
+  color: #c084fc;
+}
+
+[data-theme="dark"] .delta-pill.delta-changed {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+[data-theme="dark"] .delta-pill.delta-unchanged {
+  background-color: rgba(148, 163, 184, 0.12);
+  color: #94a3b8;
+  border-color: rgba(148, 163, 184, 0.25);
+}
+
+[data-theme="dark"] .delta-pill.delta-warning {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #fcd34d;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+[data-theme="dark"] .btn-action-check,
+[data-theme="dark"] .btn-action-slack,
+[data-theme="dark"] .btn-action-delete {
+  background-color: #1e293b;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .btn-action-check:hover:not(:disabled) {
+  background-color: #27354a;
+}
+
+[data-theme="dark"] .btn-action-slack:hover {
+  background-color: #2e1065;
+  border-color: #7e22ce;
+  color: #e9d5ff;
+}
+
+[data-theme="dark"] .btn-action-delete:hover {
+  background-color: rgba(239, 68, 68, 0.15);
+  border-color: #ef4444;
+  color: #fca5a5;
 }
 
 /* ==========================================================================

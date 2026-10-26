@@ -105,6 +105,13 @@ const SourceView = {
     } finally {
       this.state.isSearching = false;
       this.render();
+
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('demo_collect') === '1' && this.state.discoveredSources.length > 0) {
+          this.proceedToCollection();
+        }
+      } catch (e) {}
     }
   },
 
@@ -170,41 +177,21 @@ const SourceView = {
 
   formatCategory(category) {
     if (!category) return '기타 웹사이트';
-    const cat = String(category).trim();
+    const cat = String(category).trim().toLowerCase();
 
-    switch (cat) {
-      case '가전 판매점':
-        return '가전 판매점';
-      case '커뮤니티':
-      case '커뮤니티/포럼':
-        return '커뮤니티';
-      case '전문 리뷰 사이트':
-      case '전문 리뷰':
-        return '전문 리뷰 사이트';
-      case '가격 비교':
-      case '가격비교':
-      case '가격 비교 사이트':
-        return '가격 비교';
-      case 'E-commerce':
-      case 'Ecommerce':
-      case 'e-commerce':
-      case '온라인 쇼핑몰':
-      case '이커머스':
-        return '가전 판매점';
-      case 'Community/Forum':
-      case 'Community':
-      case 'Forum':
-        return '커뮤니티';
-      case 'Tech Review':
-      case 'Tech review':
-      case '테크 리뷰':
-        return '전문 리뷰 사이트';
-      case 'Price Comparison':
-      case 'Price comparison':
-        return '가격 비교';
-      default:
-        return cat;
+    if (cat.includes('e-commerce') || cat.includes('ecommerce') || cat.includes('가전 판매점') || cat.includes('쇼핑몰') || cat.includes('이커머스')) {
+      return '가전 판매점, 온라인 쇼핑몰';
     }
+    if (cat.includes('community') || cat.includes('forum') || cat.includes('커뮤니티') || cat.includes('포럼')) {
+      return '커뮤니티';
+    }
+    if (cat.includes('tech review') || cat.includes('tech') || cat.includes('전문 리뷰') || cat.includes('리뷰 사이트')) {
+      return '전문 리뷰 사이트';
+    }
+    if (cat.includes('price comparison') || cat.includes('price') || cat.includes('가격 비교') || cat.includes('가격비교')) {
+      return '가격 비교 사이트';
+    }
+    return category;
   },
 
   render() {

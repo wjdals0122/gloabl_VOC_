@@ -11,7 +11,7 @@ const MockData = {
       {
         source_id: 'src_us_bestbuy_01',
         site_name: 'Best Buy US',
-        category: '가전 판매점',
+        category: '가전 판매점, 온라인 쇼핑몰',
         url: 'https://www.bestbuy.com/site/reviews/sample-product',
         description: '전자제품 판매 사이트 · 구매 후기와 평점'
       },
@@ -34,12 +34,12 @@ const MockData = {
         site_name: 'AVS Forum',
         category: '커뮤니티',
         url: 'https://www.avsforum.com/threads/official-owners-thread',
-        description: null // 설명 미등록 -> '사이트 설명 미확인'으로 표시됨
+        description: null
       },
       {
         source_id: 'src_us_homedepot_05',
         site_name: 'Home Depot Customer Reviews',
-        category: '가전 판매점',
+        category: '가전 판매점, 온라인 쇼핑몰',
         url: 'https://www.homedepot.com/p/reviews/appliance-model',
         description: '대형 하드웨어 가전몰 · 설치 및 고객 평가'
       }
@@ -48,21 +48,21 @@ const MockData = {
       {
         source_id: 'src_de_mediamarkt_01',
         site_name: 'MediaMarkt DE',
-        category: 'E-commerce',
+        category: '가전 판매점, 온라인 쇼핑몰',
         url: 'https://www.mediamarkt.de/de/product/reviews',
         description: '독일 대표 전자제품몰 구매 후기 및 평점'
       },
       {
         source_id: 'src_de_mydealz_02',
         site_name: 'mydealz.de Forum',
-        category: 'Community/Forum',
+        category: '커뮤니티',
         url: 'https://www.mydealz.de/diskussion/voc-feedback',
         description: '쇼핑 커뮤니티 할인 정보 및 실사용 토론'
       },
       {
         source_id: 'src_de_computerbild_03',
         site_name: 'Computer Bild Lesertests',
-        category: 'Tech Review',
+        category: '전문 리뷰 사이트',
         url: 'https://www.computerbild.de/artikel/lesertest',
         description: null
       }
@@ -71,21 +71,21 @@ const MockData = {
       {
         source_id: 'src_pl_mediaexpert_01',
         site_name: 'Media Expert PL',
-        category: 'E-commerce',
+        category: '가전 판매점, 온라인 쇼핑몰',
         url: 'https://www.mediaexpert.pl/agd/opinie-klientow',
         description: '폴란드 가전 전문몰 구매 고객 평점'
       },
       {
         source_id: 'src_pl_wykop_02',
         site_name: 'Wykop.pl Mikroblog',
-        category: 'Community/Forum',
+        category: '커뮤니티',
         url: 'https://wykop.pl/tag/elektronika/wpisy',
         description: '현지 종합 커뮤니티 실사용 의견'
       },
       {
         source_id: 'src_pl_rtveuroagd_03',
         site_name: 'RTV EURO AGD',
-        category: 'E-commerce',
+        category: '가전 판매점, 온라인 쇼핑몰',
         url: 'https://www.euro.com.pl/agd/opinie',
         description: null
       }
@@ -94,21 +94,21 @@ const MockData = {
       {
         source_id: 'src_kr_danawa_01',
         site_name: '다나와 상품의견',
-        category: 'Price Comparison',
+        category: '가격 비교 사이트',
         url: 'https://prod.danawa.com/info/?pcode=sample',
         description: '가격비교 및 실사용자 제품 의견과 Q&A'
       },
       {
         source_id: 'src_kr_clien_02',
         site_name: '클리앙 사용기게시판',
-        category: 'Community/Forum',
+        category: '커뮤니티',
         url: 'https://www.clien.net/service/board/use',
         description: 'IT 가전 커뮤니티 실사용 후기 및 장단점 토론'
       },
       {
         source_id: 'src_kr_naver_03',
         site_name: '네이버 쇼핑 리뷰',
-        category: 'E-commerce',
+        category: '가전 판매점, 온라인 쇼핑몰',
         url: 'https://search.shopping.naver.com',
         description: '온라인 쇼핑몰 구매 고객 후기 및 평점'
       }

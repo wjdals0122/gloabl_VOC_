@@ -4306,3 +4306,362 @@ input:checked + .slider:before {
     transition: none !important;
   }
 }
+
+/* ==========================================================================
+   프리미엄 VOC 데이터 카드 스타일 (조잡함 제거, 극상의 가독성)
+   ========================================================================== */
+.site-accordion-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.site-group-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.site-group-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+}
+
+.site-group-header {
+  padding: 12px 18px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+}
+
+.site-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.site-category-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #475569;
+  background: #e2e8f0;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.site-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.site-count-pill {
+  font-size: 11.5px;
+  color: #64748b;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  padding: 1px 7px;
+  border-radius: 10px;
+}
+
+.site-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sentiment-mini-stats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sentiment-chip {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+
+.sentiment-chip.pos { background: #ecfdf5; color: #059669; }
+.sentiment-chip.neu { background: #fefce8; color: #ca8a04; }
+.sentiment-chip.neg { background: #fef2f2; color: #e11d48; }
+
+.btn-accordion-toggle {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+}
+
+.site-summary-bar {
+  padding: 8px 18px;
+  background: #fffdf5;
+  border-bottom: 1px solid #fef3c7;
+  font-size: 12px;
+  color: #92400e;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.review-cards-list {
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 개별 리뷰 카드 */
+.voc-review-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 16px;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
+}
+
+.voc-review-card:hover {
+  border-color: #94a3b8;
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.06);
+}
+
+/* LG 자사 언급 시 좌측 미세 액센트 라인 */
+.voc-review-card.card-has-lg {
+  border-left: 3.5px solid #ab1736;
+}
+
+.voc-review-card.card-has-comp {
+  border-left: 3.5px solid #6366f1;
+}
+
+/* 1. 상단 바: 깔끔한 뱃지 2개 + 날짜 */
+.review-card-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.card-badges-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.clean-badge {
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  letter-spacing: -0.01em;
+}
+
+.badge-sentiment-pos {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.badge-sentiment-neg {
+  background: #fef2f2;
+  color: #9f1239;
+  border: 1px solid #fecaca;
+}
+
+.badge-sentiment-neu {
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.badge-intent {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  font-weight: 600;
+}
+
+.card-date-text {
+  font-size: 11.5px;
+  color: #94a3b8;
+  font-family: inherit;
+}
+
+/* 2. 본문: 시원하고 가독성 높은 AI 요약문 (주인공) */
+.review-card-main-content {
+  margin: 6px 0 10px 0;
+}
+
+.review-kr-summary-strong {
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.6;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.015em;
+  word-break: keep-all;
+}
+
+/* 3. 하단 바: 은은한 메타 정보 & 원문 링크 */
+.review-card-bottom-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 8px;
+  border-top: 1px solid #f1f5f9;
+  margin-top: 4px;
+}
+
+.card-tags-area {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.clean-meta-tag {
+  font-size: 11px;
+  color: #64748b;
+  background: #f8fafc;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+}
+
+.clean-meta-tag.tag-comp {
+  background: #eef2ff;
+  color: #4338ca;
+  border-color: #c7d2fe;
+  font-weight: 600;
+}
+
+.btn-toggle-raw-link {
+  background: none;
+  border: none;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.btn-toggle-raw-link:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+/* 4. 원문 박스 */
+.review-raw-box {
+  margin-top: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.raw-box-header {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  letter-spacing: 0.04em;
+}
+
+.review-raw-pre {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #334155;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: 'JetBrains Mono', Consolas, monospace;
+}
+
+/* 다크모드 대응 */
+[data-theme="dark"] .site-group-card {
+  background: var(--bg-surface);
+  border-color: var(--border-medium);
+}
+
+[data-theme="dark"] .site-group-header {
+  background: var(--bg-surface-elevated);
+  border-color: var(--border-medium);
+}
+
+[data-theme="dark"] .site-title {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .site-summary-bar {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .voc-review-card {
+  background: var(--bg-surface);
+  border-color: var(--border-medium);
+}
+
+[data-theme="dark"] .voc-review-card:hover {
+  border-color: #64748b;
+}
+
+[data-theme="dark"] .review-kr-summary-strong {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .review-card-bottom-bar {
+  border-color: var(--border-subtle);
+}
+
+[data-theme="dark"] .clean-meta-tag {
+  background: var(--bg-surface-elevated);
+  border-color: var(--border-medium);
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .clean-meta-tag.tag-comp {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.3);
+  color: #a5b4fc;
+}
+
+[data-theme="dark"] .btn-toggle-raw-link {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .btn-toggle-raw-link:hover {
+  background: var(--bg-surface-hover);
+  color: #ffffff;
+}
+
+[data-theme="dark"] .review-raw-box {
+  background: var(--bg-surface-elevated);
+  border-color: var(--border-medium);
+}
+
+[data-theme="dark"] .review-raw-pre {
+  color: #cbd5e1;
+}

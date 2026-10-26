@@ -354,24 +354,133 @@ const ResultsView = {
     return brands;
   },
 
+  // 카테고리 4개 표준 한국어 명칭 변환
+  formatCategory(category) {
+    if (!category) return '기타 출처';
+    const cat = String(category).trim().toLowerCase();
+    if (cat.includes('e-commerce') || cat.includes('ecommerce') || cat.includes('가전 판매점') || cat.includes('쇼핑몰') || cat.includes('이커머스')) {
+      return '가전 판매점, 온라인 쇼핑몰';
+    }
+    if (cat.includes('community') || cat.includes('forum') || cat.includes('커뮤니티') || cat.includes('포럼')) {
+      return '커뮤니티';
+    }
+    if (cat.includes('tech review') || cat.includes('tech') || cat.includes('전문 리뷰') || cat.includes('리뷰 사이트')) {
+      return '전문 리뷰 사이트';
+    }
+    if (cat.includes('price comparison') || cat.includes('price') || cat.includes('가격 비교') || cat.includes('가격비교')) {
+      return '가격 비교 사이트';
+    }
+    return category;
+  },
+
   // 필터 조작 메서드
   setAiPreset(preset) {
     this.state.aiPreset = preset || 'all';
     this.renderResultsBody();
   },
 
+  // 키워드 검색: 사이드바 DOM을 파괴하지 않고 우측 결과만 실시간 갱신 (한글 자음모음 조합 완벽 유지)
   setSearchFilter(query) {
     this.state.searchFilter = query || '';
-    this.renderResultsBody();
+
+    // 클리어(x) 버튼 인플레이스 토글
+    const clearBtn = document.querySelector('.btn-clear-input');
+    const inputWrap = document.querySelector('.filter-input-wrap');
+    if (inputWrap) {
+      if (this.state.searchFilter) {
+        if (!clearBtn) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'btn-clear-input';
+          btn.innerHTML = '✕';
+          btn.onclick = () => ResultsView.clearSearchFilter();
+          inputWrap.appendChild(btn);
+        }
+      } else {
+        if (clearBtn) clearBtn.remove();
+      }
+    }
+
+    this.renderMainResultsOnly();
   },
 
   clearSearchFilter() {
     this.state.searchFilter = '';
-    this.renderResultsBody();
     const input = document.getElementById('voc-keyword-search');
     if (input) {
       input.value = '';
       input.focus();
+    }
+    const clearBtn = document.querySelector('.btn-clear-input');
+    if (clearBtn) clearBtn.remove();
+    this.renderMainResultsOnly();
+  },
+
+  // 우측 결과 목록 및 통계만 즉시 갱신하는 최적화 메서드 (사이드바 인풋 및 한글 IME 조합 100% 보존)
+  renderMainResultsOnly() {
+    const mainEl = document.querySelector('.voc-main-results');
+    if (!mainEl) {
+      this.renderResultsBody();
+      return;
+    }
+
+    const allItems = this.state.results;
+    const filteredItems = this.getFilteredResults();
+    const totalCount = allItems.length;
+    const filteredCount = filteredItems.length;
+
+    // 감성 집계
+    const sentPosCount = filteredItems.filter(r => r.ai_sentiment === 'POSITIVE').length;
+    const sentNeuCount = filteredItems.filter(r => r.ai_sentiment === 'NEUTRAL').length;
+    const sentNegCount = filteredItems.filter(r => r.ai_sentiment === 'NEGATIVE' || r.user_intent === 'COMPLAINT').length;
+
+    // 1. 상단 메타 헤더 통계 갱신
+    const metaFilteredEl = mainEl.querySelector('.meta-badge-filtered strong');
+    if (metaFilteredEl) metaFilteredEl.textContent = `${filteredCount}건`;
+
+    const posPill = mainEl.querySelector('.sentiment-stat-pill.pos');
+    if (posPill) posPill.textContent = `🟢 긍정 ${sentPosCount}`;
+    const neuPill = mainEl.querySelector('.sentiment-stat-pill.neu');
+    if (neuPill) neuPill.textContent = `🟡 중립 ${sentNeuCount}`;
+    const negPill = mainEl.querySelector('.sentiment-stat-pill.neg');
+    if (negPill) negPill.textContent = `🔴 부정 ${sentNegCount}`;
+
+    // 2. 좌측 사이드바 다운로드 안내 텍스트 인플레이스 갱신
+    const scopeDesc = document.querySelector('.export-option-row input[value="filtered"] + span + .option-content .option-desc');
+    if (scopeDesc) {
+      scopeDesc.textContent = `현재 조건에 부합하는 ${filteredCount}건`;
+    }
+
+    // 3. 사이트별 그룹화 갱신
+    const siteGroups = {};
+    filteredItems.forEach(item => {
+      const sName = item.site_name || '기타 출처';
+      if (!siteGroups[sName]) {
+        siteGroups[sName] = {
+          siteName: sName,
+          category: item.category || '커뮤니티',
+          items: []
+        };
+      }
+      siteGroups[sName].items.push(item);
+    });
+    const siteNames = Object.keys(siteGroups);
+
+    // 4. 아코디언 컨테이너 갱신
+    const accordionContainer = mainEl.querySelector('.site-accordion-container');
+    if (accordionContainer) {
+      if (siteNames.length === 0) {
+        accordionContainer.innerHTML = `
+          <div class="empty-state-card text-center" style="padding: 48px 20px; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0;">
+            <p style="color: #64748b; font-size: 14px; margin-bottom: 12px;">선택한 조건 필터에 해당하는 수집 VOC가 없습니다.</p>
+            <button type="button" class="btn btn-outline btn-sm" onclick="ResultsView.resetFilters()">
+              필터 초기화
+            </button>
+          </div>
+        `;
+      } else {
+        accordionContainer.innerHTML = siteNames.map(sName => this.renderSiteGroup(siteGroups[sName])).join('');
+      }
     }
   },
 
@@ -918,10 +1027,7 @@ const ResultsView = {
 
             <!-- 3. 언급 브랜드 (수집 데이터 기반 동적 목록) -->
             <div class="filter-field-group">
-              <div class="filter-field-label-row">
-                <label class="filter-field-label">3. 언급 브랜드</label>
-                <span class="brand-dynamic-indicator" title="실제 수집된 VOC에서 추출된 브랜드만 노출됩니다">● 실시간 감지</span>
-              </div>
+              <label class="filter-field-label">3. 언급 브랜드</label>
               <div class="brand-chips-wrap">
                 <button 
                   type="button" 
@@ -1186,7 +1292,7 @@ const ResultsView = {
         <!-- 사이트 그룹 헤더 -->
         <div class="site-group-header" onclick="ResultsView.toggleSiteAccordion('${CsvUtils.escapeHtml(group.siteName)}')">
           <div class="site-header-left">
-            <span class="site-category-badge">${CsvUtils.escapeHtml(group.category)}</span>
+            <span class="site-category-badge">${CsvUtils.escapeHtml(this.formatCategory(group.category))}</span>
             <h4 class="site-title">${CsvUtils.escapeHtml(group.siteName)}</h4>
             <span class="site-count-pill">${group.items.length}건 표시됨</span>
           </div>
@@ -1221,78 +1327,89 @@ const ResultsView = {
     `;
   },
 
-  // 결과 카드: 높이 축소, 우측 상단 뱃지 배치, 평가 대상 명시
+  // 결과 카드: 가독성 최우선, 조잡한 뱃지 군더더기 제거, 선명한 요약문 강조
   renderReviewCard(item) {
     const isRawExpanded = this.state.expandedReviewIds.has(item.id);
     const targetInfo = this.getEvaluationTargetInfo(item);
 
-    // 1. 감성 뱃지
-    let sentimentBadge = '<span class="review-badge badge-neutral">🟡 중립</span>';
+    // 1. 핵심 감성 및 브랜드 결합 뱃지 (명확하고 정돈된 1개 뱃지로 결합)
+    let sentimentBrandBadge = '';
     if (item.ai_sentiment === 'POSITIVE') {
-      sentimentBadge = '<span class="review-badge badge-positive">🟢 긍정</span>';
+      sentimentBrandBadge = `<span class="clean-badge badge-sentiment-pos">🟢 호평 · ${CsvUtils.escapeHtml(targetInfo.brands[0] || 'LG')}</span>`;
     } else if (item.ai_sentiment === 'NEGATIVE') {
-      sentimentBadge = '<span class="review-badge badge-negative">🔴 부정</span>';
+      if (!targetInfo.isSelf && targetInfo.brands.length > 0) {
+        sentimentBrandBadge = `<span class="clean-badge badge-sentiment-neg">🔴 타사 불만 · ${CsvUtils.escapeHtml(targetInfo.brands[0])}</span>`;
+      } else {
+        sentimentBrandBadge = `<span class="clean-badge badge-sentiment-neg">🔴 개선 요청 · ${CsvUtils.escapeHtml(targetInfo.brands[0] || 'LG')}</span>`;
+      }
+    } else {
+      sentimentBrandBadge = `<span class="clean-badge badge-sentiment-neu">🟡 중립 의견</span>`;
     }
 
-    // 2. 고객 의도 뱃지
-    let intentText = item.user_intent || '기타';
-    let intentClass = 'badge-intent-neutral';
+    // 2. 고객 의도 뱃지 (깔끔한 텍스트 뱃지)
+    let intentText = '실사용 의견';
+    let intentClass = 'intent-exp';
     if (item.user_intent === 'EXPERIENCE') {
-      intentText = '실사용 경험';
-      intentClass = 'badge-intent-exp';
+      intentText = '실사용 리뷰';
+      intentClass = 'intent-exp';
     } else if (item.user_intent === 'COMPLAINT') {
-      intentText = '불만/품질 이슈';
-      intentClass = 'badge-intent-complaint';
+      intentText = '품질/AS 불만';
+      intentClass = 'intent-complaint';
     } else if (item.user_intent === 'INQUIRY') {
       intentText = '구매 문의';
-      intentClass = 'badge-intent-inquiry';
+      intentClass = 'intent-inquiry';
     } else if (item.user_intent === 'COMPARISON') {
-      intentText = '타사 비교/선택';
-      intentClass = 'badge-intent-compare';
+      intentText = '타사 비교';
+      intentClass = 'intent-compare';
     }
-    const intentBadge = `<span class="review-badge badge-intent ${intentClass}">${intentText}</span>`;
+    const intentBadge = `<span class="clean-badge badge-intent ${intentClass}">${intentText}</span>`;
 
-    // 3. 타사 뱃지
-    const compBadge = item.competitors && item.competitors.length > 0
-      ? `<span class="review-badge badge-competitor">⚔️ 타사: ${CsvUtils.escapeHtml(item.competitors.join(', '))}</span>`
+    // 3. 타사 언급 태그 (타사 언급이 있을 때만 하단에 은은하게 배치)
+    let compTagHtml = '';
+    if (item.competitors && item.competitors.length > 0) {
+      compTagHtml = `<span class="clean-meta-tag tag-comp">⚔️ 타사 언급: ${CsvUtils.escapeHtml(item.competitors.join(', '))}</span>`;
+    }
+
+    // 4. 토픽 태그 (하단에 깔끔하게)
+    const topicTagsHtml = item.topic_tags && item.topic_tags.length > 0
+      ? item.topic_tags.map(t => `<span class="clean-meta-tag">#${CsvUtils.escapeHtml(t)}</span>`).join('')
       : '';
 
     const dateStr = item.created_at ? item.created_at.slice(0, 10) : '2026-10-24';
 
     return `
-      <div class="voc-review-card ${item.lg_mentioned ? 'has-lg-mention' : (item.competitors && item.competitors.length > 0 ? 'has-comp-mention' : '')}" id="rev-${item.id}">
-        <div class="review-card-compact-grid">
-          <!-- 왼쪽: 감성 평가 대상 뱃지 + 언급 브랜드 + 토픽 태그 + AI 요약문 -->
-          <div class="review-left-content">
-            <div class="review-meta-inline">
-              <span class="eval-target-badge ${targetInfo.chipClass}">
-                🎯 평가 대상: <strong>${CsvUtils.escapeHtml(targetInfo.evalTarget)}</strong>
-              </span>
-              <span class="mention-brands-pill">🏷️ 언급: ${CsvUtils.escapeHtml(targetInfo.brands.join(', '))}</span>
-              ${item.topic_tags ? item.topic_tags.map(t => `<span class="review-tag">#${CsvUtils.escapeHtml(t)}</span>`).join('') : ''}
-            </div>
-            <p class="review-kr-summary">${CsvUtils.escapeHtml(item.kr_summary || '(AI 요약 없음)')}</p>
+      <div class="voc-review-card ${item.lg_mentioned ? 'card-has-lg' : 'card-has-comp'}" id="rev-${item.id}">
+        <!-- 상단 헤더: 결합 감성/브랜드 뱃지 + 고객 의도 뱃지 + 작성일 -->
+        <div class="review-card-top-bar">
+          <div class="card-badges-left">
+            ${sentimentBrandBadge}
+            ${intentBadge}
           </div>
-
-          <!-- 우측 상단: 필터 내용(감성, 고객 의도, 타사 뱃지) + 날짜 + 원문보기 버튼 -->
-          <div class="review-right-meta">
-            <div class="review-badges-top-right">
-              ${sentimentBadge}
-              ${intentBadge}
-              ${compBadge}
-            </div>
-            <div class="review-bottom-action-inline">
-              <span class="review-date-compact">${dateStr}</span>
-              <button type="button" class="btn-toggle-raw-compact" onclick="ResultsView.toggleRawContent('${item.id}', event)">
-                ${isRawExpanded ? '원문 접기 ▲' : '원문 보기 ▼'}
-              </button>
-            </div>
+          <div class="card-date-right">
+            <span class="card-date-text">${dateStr}</span>
           </div>
         </div>
 
-        <!-- 긴 원문은 펼쳐보기 방식으로 유지 -->
+        <!-- 본문: 시원하고 가독성 높은 AI 핵심 요약 (주인공) -->
+        <div class="review-card-main-content">
+          <p class="review-kr-summary-strong">${CsvUtils.escapeHtml(item.kr_summary || '(요약문 없음)')}</p>
+        </div>
+
+        <!-- 하단 푸터: 은은한 메타 태그 & 우측 원문 보기 토글 버튼 -->
+        <div class="review-card-bottom-bar">
+          <div class="card-tags-area">
+            ${compTagHtml}
+            ${topicTagsHtml}
+          </div>
+          <button type="button" class="btn-toggle-raw-link" onclick="ResultsView.toggleRawContent('${item.id}', event)">
+            ${isRawExpanded ? '원문 접기 ▲' : '원문 보기 ▼'}
+          </button>
+        </div>
+
+        <!-- 긴 원문 펼쳐보기 -->
         ${isRawExpanded ? `
           <div class="review-raw-box">
+            <div class="raw-box-header">수집 원문 텍스트</div>
             <pre class="review-raw-pre"><code>${CsvUtils.escapeHtml(item.content)}</code></pre>
           </div>
         ` : ''}

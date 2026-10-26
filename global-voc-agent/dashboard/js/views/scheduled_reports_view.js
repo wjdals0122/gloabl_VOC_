@@ -250,11 +250,7 @@ const ScheduledReportsView = {
             <span class="options-label">알림 조건 설정:</span>
             <label class="option-checkbox-label">
               <input type="checkbox" id="sched-opt-change-only" checked>
-              <span>신규 VOC 수집 또는 주요 감성 변동 시에만 Slack 알림 전송 (알림 피로 방지)</span>
-            </label>
-            <label class="option-checkbox-label">
-              <input type="checkbox" id="sched-opt-dashboard-link" checked>
-              <span>Slack 메시지에 대시보드 원클릭 분석 링크 자동 첨부</span>
+              <span>신규 VOC 수집 또는 주요 감성 변동 시에만 Slack 알림 전송</span>
             </label>
           </div>
 
@@ -313,9 +309,8 @@ const ScheduledReportsView = {
               <th class="th-schedule" style="width: 140px;">추적 주기</th>
               <th class="th-delta" style="min-width: 205px;">주간 변동 감지 상태</th>
               <th class="th-slack" style="min-width: 165px;">Slack 알림 채널</th>
-              <th class="th-next-run" style="width: 125px; text-align: center;">다음 실행 예약</th>
-              <th class="th-last-run" style="width: 165px;">최근 자동 갱신 이력</th>
-              <th class="th-actions" style="width: 235px; text-align: center;">대시보드 및 관리</th>
+              <th class="th-last-run" style="width: 175px;">최근 자동 갱신 이력</th>
+              <th class="th-actions" style="width: 195px; text-align: center;">대시보드 및 관리</th>
             </tr>
           </thead>
           <tbody>
@@ -425,15 +420,7 @@ const ScheduledReportsView = {
           </div>
         </td>
 
-        <!-- 6. 다음 실행 예약 -->
-        <td class="td-next-run" style="text-align: center;">
-          <div class="next-run-pill ${item.isActive ? 'active-run' : 'paused-run'}">
-            <span class="next-date">${item.isActive ? CsvUtils.escapeHtml(nextDate) : '일시정지됨'}</span>
-            <span class="next-time">${item.isActive ? CsvUtils.escapeHtml(nextTime) : ''}</span>
-          </div>
-        </td>
-
-        <!-- 7. 최근 자동 갱신 이력 -->
+        <!-- 6. 최근 자동 갱신 이력 -->
         <td class="td-last-run">
           <div class="last-run-lines">
             <span class="last-date">${CsvUtils.escapeHtml(lastDate)}</span>
@@ -441,14 +428,11 @@ const ScheduledReportsView = {
           </div>
         </td>
 
-        <!-- 8. 액션 버튼 (대시보드 결과 보기 / 지금 체크 / Slack 미리보기 / 삭제) -->
+        <!-- 7. 액션 버튼 (대시보드 결과 보기 / Slack 미리보기 / 삭제) -->
         <td class="td-actions" style="text-align: center;">
           <div class="action-btn-group">
             <button type="button" class="btn-action-dashboard" onclick="ScheduledReportsView.openDashboardView('${item.country}', '${CsvUtils.escapeHtml(item.product)}')" title="이 키워드의 최신 VOC 분석 결과 대시보드로 이동합니다">
               대시보드 보기 ↗
-            </button>
-            <button type="button" class="btn-action-check" onclick="ScheduledReportsView.triggerCheck('${item.id}')" ${isChecking ? 'disabled' : ''} title="지금 즉시 수집 및 변동 사항을 체크하고 Slack 알림을 갱신합니다">
-              ${isChecking ? '분석 중...' : '지금 체크'}
             </button>
             <button type="button" class="btn-action-slack" onclick="ScheduledReportsView.openSlackPreview('${item.id}')" title="Slack으로 전송된 알림 메시지 미리보기">
               Slack 미리보기
@@ -641,7 +625,6 @@ const ScheduledReportsView = {
     const freqEl = document.getElementById('sched-frequency');
     const slackEl = document.getElementById('sched-slack-channel');
     const optChangeEl = document.getElementById('sched-opt-change-only');
-    const optLinkEl = document.getElementById('sched-opt-dashboard-link');
 
     const country = countryEl ? countryEl.value : 'PL';
     const product = productEl ? productEl.value.trim() : '';
@@ -694,7 +677,7 @@ const ScheduledReportsView = {
         frequency: freqVal,
         slackChannel: slackChannel,
         notifyOnChangeOnly: optChangeEl ? optChangeEl.checked : true,
-        includeDashboardLink: optLinkEl ? optLinkEl.checked : true,
+        includeDashboardLink: true,
         isActive: true,
         deltaStatus: 'changed',
         deltaCount: 12,

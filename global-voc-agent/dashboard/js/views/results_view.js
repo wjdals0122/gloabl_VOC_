@@ -610,7 +610,7 @@ const ResultsView = {
       <div class="voc-intelligence-dashboard">
 
         <!-- ==================================================================
-             1. 상단 컨텍스트 바
+             1. 상단 컨텍스트 & 제외 키워드 바
              ================================================================== -->
         <div class="dash-context-bar">
           <div class="context-left-info">
@@ -620,6 +620,26 @@ const ResultsView = {
             <span class="badge-channel-display">
               ${this.state.channel === 'community' ? '커뮤니티' : this.state.channel === 'reviews' ? '제품리뷰' : '커뮤니티 + 제품리뷰 (통합)'}
             </span>
+
+            <!-- 수집 제외 키워드 설정 바 -->
+            <div class="context-exclude-wrap">
+              <span class="exclude-label">🚫 제외 키워드:</span>
+              <div class="exclude-tag-chips">
+                ${this.state.excludedKeywords.length === 0 ? `
+                  <span class="empty-exclude-text">설정된 제외어 없음</span>
+                ` : this.state.excludedKeywords.map(w => `
+                  <span class="exclude-chip">
+                    #${CsvUtils.escapeHtml(w)}
+                    <button type="button" class="btn-del-exclude" onclick="ResultsView.removeExcludedKeyword('${CsvUtils.escapeHtml(w)}')" title="제외어 삭제">✕</button>
+                  </span>
+                `).join('')}
+              </div>
+              <div class="exclude-input-box">
+                <input type="text" id="input-add-exclude" class="input-exclude-inline" placeholder="+ 제외어 입력 후 엔터" 
+                       onkeydown="if(event.key === 'Enter'){ ResultsView.addExcludedKeyword(this.value); this.value = ''; }">
+                <button type="button" class="btn-add-exclude-inline" onclick="const el = document.getElementById('input-add-exclude'); if(el && el.value){ ResultsView.addExcludedKeyword(el.value); el.value=''; }" title="제외어 추가">추가</button>
+              </div>
+            </div>
           </div>
 
           <div class="context-right-controls">
@@ -836,28 +856,54 @@ const ResultsView = {
               </div>
             </div>
 
-            <!-- (2) 통합 언급량 키워드 1~10순위 (Top 10) -->
+            <!-- (2) 전체 통합 언급량 키워드: 워드클라우드 + 간결한 1~10순위 -->
             <div class="sk-card top10-card">
               <div class="card-head">
-                <h4 class="card-head-title"><span class="badge-icon-total">🔥</span> 전체 통합 언급량 키워드 1~10순위</h4>
-                <span class="card-head-meta">감성 태그 및 언급 비중</span>
+                <h4 class="card-head-title"><span class="badge-icon-total">☁️</span> 전체 통합 언급량 키워드 1~10순위</h4>
+                <span class="card-head-meta">워드클라우드 및 간결 랭킹</span>
               </div>
-              <div class="top10-grid-list">
-                ${top10Keywords.map(k => {
-                  const sentClass = k.sentiment === 'pos' ? 'tag-pos' : k.sentiment === 'neg' ? 'tag-neg' : 'tag-neu';
-                  const sentLabel = k.sentiment === 'pos' ? '긍정' : k.sentiment === 'neg' ? '부정' : '중립';
-                  return `
-                    <div class="top10-item" onclick="ResultsView.selectKeywordTag('${k.keyword}')" title="클릭 시 관련 VOC 검색">
-                      <span class="top10-rank ${k.rank <= 3 ? 'rank-highlight' : ''}">${k.rank}</span>
-                      <span class="top10-keyword">${CsvUtils.escapeHtml(k.keyword)}</span>
-                      <span class="top10-sentiment-badge ${sentClass}">${sentLabel}</span>
-                      <div class="top10-track">
-                        <div class="top10-bar ${sentClass}" style="width: ${Math.min(100, k.percent * 4.5)}%;"></div>
-                      </div>
-                      <span class="top10-count">${k.count}건 (${k.percent}%)</span>
-                    </div>
-                  `;
-                }).join('')}
+              <div class="top10-cloud-split-container">
+                <!-- 좌측: 워드클라우드 (언급량에 비례한 유기적 크기 및 감성 컬러) -->
+                <div class="wordcloud-pane">
+                  <div class="pane-header-mini">
+                    <span class="pane-mini-title">워드클라우드</span>
+                    <span class="pane-mini-hint">클릭 시 관련 VOC 검색</span>
+                  </div>
+                  <div class="wordcloud-tag-cloud">
+                    ${top10Keywords.map((k, idx) => {
+                      const sentClass = k.sentiment === 'pos' ? 'tag-pos' : k.sentiment === 'neg' ? 'tag-neg' : 'tag-neu';
+                      const sizeTier = idx === 0 ? 'tier-1' : idx === 1 ? 'tier-2' : idx <= 3 ? 'tier-3' : idx <= 6 ? 'tier-4' : 'tier-5';
+                      return `
+                        <button type="button" class="wc-tag ${sizeTier} ${sentClass}" onclick="ResultsView.selectKeywordTag('${k.keyword}')" title="${k.keyword} (${k.count}건 언급)">
+                          <span class="wc-keyword">${CsvUtils.escapeHtml(k.keyword)}</span>
+                          <span class="wc-cnt">${k.count}</span>
+                        </button>
+                      `;
+                    }).join('')}
+                  </div>
+                </div>
+
+                <!-- 우측: 간결한 1~10순위 랭킹 -->
+                <div class="concise-rank-pane">
+                  <div class="pane-header-mini">
+                    <span class="pane-mini-title">1~10순위</span>
+                    <span class="pane-mini-hint">언급 건수 순</span>
+                  </div>
+                  <div class="concise-top10-list">
+                    ${top10Keywords.map(k => {
+                      const isTop3 = k.rank <= 3;
+                      const sentDotClass = k.sentiment === 'pos' ? 'dot-pos' : k.sentiment === 'neg' ? 'dot-neg' : 'dot-neu';
+                      return `
+                        <div class="concise-rank-item" onclick="ResultsView.selectKeywordTag('${k.keyword}')" title="클릭 시 관련 VOC 검색">
+                          <span class="concise-rank-num ${isTop3 ? 'top-three' : ''}">${k.rank}</span>
+                          <span class="concise-dot ${sentDotClass}"></span>
+                          <span class="concise-keyword">${CsvUtils.escapeHtml(k.keyword)}</span>
+                          <span class="concise-count">${k.count}건</span>
+                        </div>
+                      `;
+                    }).join('')}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

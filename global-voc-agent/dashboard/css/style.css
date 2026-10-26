@@ -5108,6 +5108,24 @@ input:checked + .slider:before {
   width: 170px;
 }
 
+.btn-add-exclude-inline {
+  background: #ef4444;
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-left: 4px;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.btn-add-exclude-inline:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
+}
+
 .context-right-controls {
   display: flex;
   align-items: center;
@@ -5733,7 +5751,7 @@ input:checked + .slider:before {
 .pct-neg { color: #ef4444; }
 
 /* -----------------------------------------------------------------------------
-   통합 언급량 키워드 Top 10 카드
+   통합 언급량 키워드: 워드클라우드 + 간결 1~10순위
    ----------------------------------------------------------------------------- */
 .top10-card {
   display: flex;
@@ -5744,45 +5762,142 @@ input:checked + .slider:before {
   font-size: 15px;
 }
 
-.top10-grid-list {
+.top10-cloud-split-container {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px 12px;
+  grid-template-columns: 1fr 260px;
+  gap: 16px;
+  align-items: stretch;
 }
 
-@media (max-width: 600px) {
-  .top10-grid-list {
+@media (max-width: 900px) {
+  .top10-cloud-split-container {
     grid-template-columns: 1fr;
   }
 }
 
-.top10-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
+.wordcloud-pane,
+.concise-rank-pane {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.pane-header-mini {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.pane-mini-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.pane-mini-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* 워드클라우드 태그 클라우드 */
+.wordcloud-tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 10px;
+  padding: 8px 4px;
+  min-height: 180px;
+  flex: 1;
+}
+
+.wc-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 9999px;
+  border: 1px solid var(--border-subtle);
   cursor: pointer;
-  transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.16s ease, box-shadow 0.16s ease;
+  transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.16s ease, border-color 0.16s ease;
   user-select: none;
 }
 
-.top10-item:hover {
-  transform: translateY(-1px);
+.wc-tag:hover {
+  transform: scale(1.06);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
   border-color: var(--border-medium);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
 }
 
-.top10-rank {
-  width: 20px;
-  height: 20px;
-  border-radius: 5px;
+.wc-tag.tier-1 { font-size: 18px; font-weight: 800; padding: 7px 15px; }
+.wc-tag.tier-2 { font-size: 16px; font-weight: 800; padding: 6px 13px; }
+.wc-tag.tier-3 { font-size: 14.5px; font-weight: 700; padding: 5px 11px; }
+.wc-tag.tier-4 { font-size: 13px; font-weight: 600; padding: 4px 10px; }
+.wc-tag.tier-5 { font-size: 11.5px; font-weight: 600; padding: 3px 8px; }
+
+.wc-tag.tag-pos {
+  background: rgba(16, 185, 129, 0.08);
+  color: #047857;
+  border-color: rgba(16, 185, 129, 0.25);
+}
+
+.wc-tag.tag-neg {
+  background: rgba(239, 68, 68, 0.08);
+  color: #b91c1c;
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.wc-tag.tag-neu {
+  background: rgba(148, 163, 184, 0.12);
+  color: #334155;
+  border-color: rgba(148, 163, 184, 0.25);
+}
+
+.wc-cnt {
+  font-size: 10.5px;
+  opacity: 0.75;
+  font-feature-settings: 'tnum' 1;
+  font-weight: 700;
+}
+
+/* 간결한 1~10순위 랭킹 리스트 */
+.concise-top10-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  justify-content: space-between;
+}
+
+.concise-rank-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+  user-select: none;
+}
+
+.concise-rank-item:hover {
+  background-color: var(--bg-surface-elevated);
+  transform: translateX(2px);
+}
+
+.concise-rank-num {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   font-feature-settings: 'tnum' 1;
   background: var(--bg-surface-elevated);
@@ -5790,73 +5905,40 @@ input:checked + .slider:before {
   flex-shrink: 0;
 }
 
-.top10-rank.rank-highlight {
+.concise-rank-num.top-three {
   background: rgba(165, 0, 52, 0.1);
   color: #a50034;
   font-weight: 800;
 }
 
-.top10-keyword {
-  font-size: 12.5px;
-  font-weight: 700;
-  color: var(--text-heading);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 115px;
-}
-
-.top10-sentiment-badge {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 1.5px 5.5px;
-  border-radius: 4px;
-  white-space: nowrap;
+.concise-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
   flex-shrink: 0;
 }
 
-.top10-sentiment-badge.tag-pos {
-  background: rgba(16, 185, 129, 0.12);
-  color: #059669;
-}
+.concise-dot.dot-pos { background: #10b981; }
+.concise-dot.dot-neg { background: #ef4444; }
+.concise-dot.dot-neu { background: #94a3b8; }
 
-.top10-sentiment-badge.tag-neg {
-  background: rgba(239, 68, 68, 0.12);
-  color: #dc2626;
-}
-
-.top10-sentiment-badge.tag-neu {
-  background: rgba(148, 163, 184, 0.15);
-  color: #475569;
-}
-
-.top10-track {
+.concise-keyword {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-heading);
   flex: 1;
-  height: 5px;
-  background: #f1f5f9;
-  border-radius: 9999px;
+  white-space: nowrap;
   overflow: hidden;
-  min-width: 32px;
+  text-overflow: ellipsis;
 }
 
-.top10-bar {
-  height: 100%;
-  border-radius: 9999px;
-}
-
-.top10-bar.tag-pos { background: #10b981; }
-.top10-bar.tag-neg { background: #ef4444; }
-.top10-bar.tag-neu { background: #94a3b8; }
-
-.top10-count {
-  font-size: 11px;
+.concise-count {
+  font-size: 11.5px;
   font-weight: 600;
   color: var(--text-muted);
   font-feature-settings: 'tnum' 1;
   white-space: nowrap;
   flex-shrink: 0;
-  min-width: 65px;
-  text-align: right;
 }
 
 /* -----------------------------------------------------------------------------
@@ -6490,6 +6572,43 @@ input:checked + .slider:before {
 [data-theme="dark"] .vol-item {
   background: #141b27;
   border-color: #232c3d;
+}
+
+[data-theme="dark"] .wordcloud-pane,
+[data-theme="dark"] .concise-rank-pane {
+  background: #141b27;
+  border-color: #232c3d;
+}
+
+[data-theme="dark"] .concise-rank-item:hover {
+  background-color: #1e293b;
+}
+
+[data-theme="dark"] .concise-rank-num {
+  background: #1e293b;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .concise-keyword {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .wc-tag.tag-pos {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+[data-theme="dark"] .wc-tag.tag-neg {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+[data-theme="dark"] .wc-tag.tag-neu {
+  background: rgba(148, 163, 184, 0.15);
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.35);
 }
 
 [data-theme="dark"] .card-summary-line,

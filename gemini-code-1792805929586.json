@@ -1,0 +1,245 @@
+{
+  "name": "[시트 3] ScrapingAnt 2-Depth 우회 크롤러 (무료 Gemini 최적화)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "sheet3-trigger-01",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [140, 340]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "[https://api.scrapingant.com/v2/markdown](https://api.scrapingant.com/v2/markdown)",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "url",
+              "value": "={{ $json.url }}"
+            },
+            {
+              "name": "x-api-key",
+              "value": "YOUR_SCRAPINGANT_API_KEY"
+            },
+            {
+              "name": "browser",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "sheet3-ant-depth1-02",
+      "name": "ScrapingAnt (Depth 1: 검색목록 수집)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [360, 340],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 무료 Gemini 토큰 한도 보호를 위해 마크다운을 25,000자로 절삭합니다.\nconst rawMd = $input.first().json?.markdown || '';\nconst triggerData = $('Execute Workflow Trigger').first().json;\n\nreturn [{\n  json: {\n    url: triggerData.url,\n    category: triggerData.category,\n    keyword: triggerData.keyword,\n    truncated_markdown: rawMd.substring(0, 25000)\n  }\n}];"
+      },
+      "id": "sheet3-truncate1-03",
+      "name": "마크다운 길이 제한 (토큰 보호)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [580, 340]
+    },
+    {
+      "parameters": {
+        "amount": 4,
+        "unit": "seconds"
+      },
+      "id": "sheet3-wait1-04",
+      "name": "Wait 4s (무료 API Rate Limit 방지)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [800, 340]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "[https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent](https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent)",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "YOUR_FREE_GEMINI_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"아래는 '{{ $json.keyword }}' 제품을 검색한 웹사이트({{ $json.url }})의 마크다운 텍스트야.\\n이 중에서 광고나 단순 액세서리를 제외하고, 실제 '{{ $json.keyword }}' 본품의 상세 페이지(리뷰나 댓글을 볼 수 있는 페이지)로 들어가는 링크(URL)를 최대 2개만 추출해 줘.\\n상대 경로라면 기준 도메인을 붙여 완전한 https:// URL로 변환해 줘.\\n\\n응답은 반드시 아래 JSON 배열 포맷으로만 출력해:\\n[{\\\"detail_url\\\": \\\"https://...\\\", \\\"product_title\\\": \\\"제품/게시물 제목\\\"}]\\n\\n[웹사이트 마크다운]\\n{{ $json.truncated_markdown }}\"\n    }]\n  }],\n  \"generationConfig\": {\n    \"responseMimeType\": \"application/json\"\n  }\n}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "sheet3-gemini-links-05",
+      "name": "Gemini (2-Depth 상세링크 추출)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1020, 340],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawText = $input.first().json?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';\nconst category = $('Execute Workflow Trigger').first().json.category || 'E-commerce';\n\nlet links = [];\ntry {\n  links = JSON.parse(rawText.replace(/```json|```/g, '').trim());\n} catch (e) {\n  links = [];\n}\n\nreturn links.slice(0, 2).map(item => ({\n  json: {\n    detail_url: item.detail_url,\n    product_title: item.product_title || 'Product',\n    category: category\n  }\n}));"
+      },
+      "id": "sheet3-split-links-06",
+      "name": "2-Depth 상세링크 분리",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1240, 340]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "sheet3-loop-depth2-07",
+      "name": "Loop Over 2-Depth Pages",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1460, 340]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "[https://api.scrapingant.com/v2/markdown](https://api.scrapingant.com/v2/markdown)",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "url",
+              "value": "={{ $json.detail_url }}"
+            },
+            {
+              "name": "x-api-key",
+              "value": "YOUR_SCRAPINGANT_API_KEY"
+            },
+            {
+              "name": "browser",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "sheet3-ant-depth2-08",
+      "name": "ScrapingAnt (Depth 2: 상세페이지 수집)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1700, 420],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawMd = $input.first().json?.markdown || '';\nconst currentItem = $('Loop Over 2-Depth Pages').first().json;\n\nreturn [{\n  json: {\n    detail_url: currentItem.detail_url,\n    product_title: currentItem.product_title,\n    category: currentItem.category,\n    truncated_detail_markdown: rawMd.substring(0, 30000)\n  }\n}];"
+      },
+      "id": "sheet3-truncate2-09",
+      "name": "상세 마크다운 절삭",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1920, 420]
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "seconds"
+      },
+      "id": "sheet3-wait2-10",
+      "name": "Wait 5s (Rate Limit 보호)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [2140, 420]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "[https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent](https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent)",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "YOUR_FREE_GEMINI_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"아래는 '{{ $json.product_title }}' 상세 페이지의 마크다운 텍스트야.\\n여기서 소비자들이 작성한 개별 리뷰(Review), 댓글(Comment), 혹은 본문 의견(Post)들을 찾아서 각각 분리해 줘.\\n별점이나 추천수가 있다면 내용 앞에 '[Rating: X/5]' 형태로 포함시켜 줘.\\n\\n응답은 반드시 아래 JSON 배열 포맷으로만 출력해 (최대 10개 추출):\\n[{\\\"content_type\\\": \\\"REVIEW 또는 POST 또는 COMMENT\\\", \\\"content\\\": \\\"소비자 의견 원문 내용\\\"}]\\n\\n[상세페이지 마크다운]\\n{{ $json.truncated_detail_markdown }}\"\n    }]\n  }],\n  \"generationConfig\": {\n    \"responseMimeType\": \"application/json\"\n  }\n}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "sheet3-gemini-voc-11",
+      "name": "Gemini (개별 리뷰/VOC 추출)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2360, 420],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 추출된 리뷰 배열을 표준 5개 VOC 스키마(VOC_ID | CATEGORY | CONTENT_TYPE | CONTENT | PARENT_ID)로 정규화합니다.\nconst rawText = $input.first().json?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';\nconst meta = $('상세 마크다운 절삭').first().json;\n\nlet vocList = [];\ntry {\n  vocList = JSON.parse(rawText.replace(/```json|```/g, '').trim());\n} catch (e) {\n  vocList = [];\n}\n\nconst timestamp = Date.now().toString(36);\n\nreturn vocList.map((v, idx) => ({\n  json: {\n    VOC_ID: `EXT_${timestamp}_${idx + 1}`,\n    CATEGORY: meta.category || 'E-commerce',\n    CONTENT_TYPE: v.content_type || 'REVIEW',\n    CONTENT: v.content || '',\n    PARENT_ID: meta.detail_url\n  }\n}));"
+      },
+      "id": "sheet3-normalize-12",
+      "name": "VOC 스키마 변환 (Row 생성)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2580, 420]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [[{ "node": "ScrapingAnt (Depth 1: 검색목록 수집)", "type": "main", "index": 0 }]]
+    },
+    "ScrapingAnt (Depth 1: 검색목록 수집)": {
+      "main": [[{ "node": "마크다운 길이 제한 (토큰 보호)", "type": "main", "index": 0 }]]
+    },
+    "마크다운 길이 제한 (토큰 보호)": {
+      "main": [[{ "node": "Wait 4s (무료 API Rate Limit 방지)", "type": "main", "index": 0 }]]
+    },
+    "Wait 4s (무료 API Rate Limit 방지)": {
+      "main": [[{ "node": "Gemini (2-Depth 상세링크 추출)", "type": "main", "index": 0 }]]
+    },
+    "Gemini (2-Depth 상세링크 추출)": {
+      "main": [[{ "node": "2-Depth 상세링크 분리", "type": "main", "index": 0 }]]
+    },
+    "2-Depth 상세링크 분리": {
+      "main": [[{ "node": "Loop Over 2-Depth Pages", "type": "main", "index": 0 }]]
+    },
+    "Loop Over 2-Depth Pages": {
+      "main": [
+        [],
+        [{ "node": "ScrapingAnt (Depth 2: 상세페이지 수집)", "type": "main", "index": 0 }]
+      ]
+    },
+    "ScrapingAnt (Depth 2: 상세페이지 수집)": {
+      "main": [[{ "node": "상세 마크다운 절삭", "type": "main", "index": 0 }]]
+    },
+    "상세 마크다운 절삭": {
+      "main": [[{ "node": "Wait 5s (Rate Limit 보호)", "type": "main", "index": 0 }]]
+    },
+    "Wait 5s (Rate Limit 보호)": {
+      "main": [[{ "node": "Gemini (개별 리뷰/VOC 추출)", "type": "main", "index": 0 }]]
+    },
+    "Gemini (개별 리뷰/VOC 추출)": {
+      "main": [[{ "node": "VOC 스키마 변환 (Row 생성)", "type": "main", "index": 0 }]]
+    },
+    "VOC 스키마 변환 (Row 생성)": {
+      "main": [[{ "node": "Loop Over 2-Depth Pages", "type": "main", "index": 0 }]]
+    }
+  }
+}

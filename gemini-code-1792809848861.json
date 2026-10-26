@@ -1,0 +1,74 @@
+{
+  "name": "[시트 2] Reddit 전용 2-Depth 수집기 (Apify 연동)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "sheet2-apify-trigger-01",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/trudax~reddit-scraper-lite/run-sync-get-dataset-items",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "YOUR_APIFY_API_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"searches\": [\n    \"{{ $json.keyword }}\"\n  ],\n  \"searchPosts\": true,\n  \"searchComments\": false,\n  \"skipComments\": false,\n  \"maxItems\": 30,\n  \"maxPostCount\": 5,\n  \"maxComments\": 10,\n  \"sort\": \"relevance\",\n  \"time\": \"all\"\n}",
+        "options": {
+          "timeout": 180000
+        }
+      },
+      "id": "sheet2-apify-http-02",
+      "name": "Apify Reddit Scraper (본문+댓글 일괄수집)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Apify Reddit Scraper 결과를 표준 5개 VOC 스키마(VOC_ID | CATEGORY | CONTENT_TYPE | CONTENT | PARENT_ID)로 정규화합니다.\nconst vocRows = [];\nconst category = $('Execute Workflow Trigger').first().json?.category || 'Community/Forum';\n\nfor (const item of $input.all()) {\n  const d = item.json;\n  if (!d || (!d.id && !d.parsedId)) continue;\n\n  const rawId = d.parsedId || d.id;\n  const dataType = (d.dataType || d.type || '').toLowerCase();\n\n  // 1. 게시물 본문(Post)인 경우 (제목 + 본문 병합)\n  if (dataType === 'post' || d.title) {\n    const postId = `RD_POST_${rawId}`;\n    const title = d.title || '';\n    const body = d.body || d.selftext || d.text || '(본문 텍스트 없음)';\n\n    vocRows.push({\n      json: {\n        VOC_ID: postId,\n        CATEGORY: category,\n        CONTENT_TYPE: 'POST',\n        CONTENT: `[Title] ${title}\\n[Body] ${body}`,\n        PARENT_ID: null\n      }\n    });\n  } \n  // 2. 댓글(Comment)인 경우 (상위 게시물 ID를 PARENT_ID로 매핑)\n  else if (dataType === 'comment' || d.parentId || d.postId) {\n    const commentBody = d.body || d.text || '';\n    if (!commentBody || commentBody === '[deleted]' || commentBody === '[removed]') continue;\n\n    // Apify가 제공하는 상위 게시물 ID(postId 또는 parentId)에서 순수 ID 추출\n    const rawPostId = (d.postId || d.parentId || '').replace(/^t[13]_/, '');\n\n    vocRows.push({\n      json: {\n        VOC_ID: `RD_CMT_${rawId}`,\n        CATEGORY: category,\n        CONTENT_TYPE: 'COMMENT',\n        CONTENT: commentBody,\n        PARENT_ID: rawPostId ? `RD_POST_${rawPostId}` : null\n      }\n    });\n  }\n}\n\nreturn vocRows;"
+      },
+      "id": "sheet2-apify-normalize-03",
+      "name": "VOC 스키마 정규화 (본문+댓글 분리)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [740, 300]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Apify Reddit Scraper (본문+댓글 일괄수집)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apify Reddit Scraper (본문+댓글 일괄수집)": {
+      "main": [
+        [
+          {
+            "node": "VOC 스키마 정규화 (본문+댓글 분리)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

@@ -1,0 +1,303 @@
+{
+  "name": "[시트 3] 재귀 크롤러 (리뷰 나올 때까지 탐색)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "ac422f46-4240-418f-8c38-ac76c0152d40",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 이번 단계(depth)에서 방문할 URL 목록을 정리합니다.\n// 시트 1에서 처음 호출되면 depth=0 (DDG 검색 URL), 재귀 호출이면 depth>=1\nconst MAX_DEPTH = 6;        // 비상 브레이크: 정상적인 양판점이면 닿지 않는 깊이\nconst MAX_PER_LEVEL = 15;   // 한 단계에서 여는 최대 페이지 수 (크레딧 보호)\n\nconst items = $input.all().map(i => i.json).filter(j => j && j.url && !j._noop);\nif (!items.length) return [];\n\nconst first = items[0];\nconst depth = Number(first.depth || 0);\nif (depth > MAX_DEPTH) return [];\n\nconst visited = new Set(first.visited || []);\n\n// 기준 도메인: DDG URL의 site:도메인, 없으면 URL 호스트\nlet rootDomain = first.root_domain || '';\nif (!rootDomain) {\n  try {\n    const m = decodeURIComponent(first.url).match(/site:([^\\s+&]+)/);\n    rootDomain = (m ? m[1] : new URL(first.url).hostname).replace(/^www\\./, '');\n  } catch (e) {\n    rootDomain = '';\n  }\n}\n\nconst picked = [];\nfor (const j of items) {\n  const url = String(j.url).trim();\n  if (visited.has(url)) continue;\n  visited.add(url);\n  picked.push({ ...j, url });\n  if (picked.length >= MAX_PER_LEVEL) break;\n}\n\nconst visitedArr = [...visited];\nreturn picked.map(j => ({\n  json: {\n    url: j.url,\n    depth,\n    root_domain: rootDomain,\n    keyword: j.keyword || '',\n    original_keyword: j.original_keyword || j.keyword || '',\n    category: j.category || 'E-commerce',\n    site_name: j.site_name || rootDomain || 'External_Site',\n    country: j.country || '',\n    visited: visitedArr\n  }\n}));"
+      },
+      "id": "b1f0c001-0000-4000-8000-000000000001",
+      "name": "입력 정리",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.scrapingant.com/v2/markdown",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "url",
+              "value": "={{ $json.url }}"
+            },
+            {
+              "name": "browser",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 2,
+              "batchInterval": 1000
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "b1f0c001-0000-4000-8000-000000000002",
+      "name": "ScrapingAnt (페이지 수집)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Lg11B4qLEPE8WIuM",
+          "name": "ScrapingAnt API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// 스크래핑 결과 정리. DDG 검색결과는 AI 없이 코드로 링크를 뽑습니다.\nconst src = $('입력 정리').item.json;\nconst md = $json.markdown || '';\nconst isDdg = src.url.includes('duckduckgo.com');\n\nlet ddgLinks = [];\nif (isDdg) {\n  ddgLinks = [...md.matchAll(/uddg=([^&)\\s]+)/g)]\n    .map(m => { try { return decodeURIComponent(m[1]); } catch (e) { return ''; } })\n    .filter(u => u.startsWith('http') && !u.includes('duckduckgo.com/y.js'));  // 광고 제외\n  ddgLinks = [...new Set(ddgLinks)];\n}\n\nconst scrapeError = md ? null : String($json.error?.message || $json.message || 'empty markdown');\n\nreturn {\n  json: {\n    ...src,\n    is_ddg: isDdg,\n    ddg_links: ddgLinks,\n    scrape_error: scrapeError,\n    page_markdown: isDdg\n      ? '(검색엔진 결과 페이지 - 판정 불필요. IRRELEVANT로 응답)'\n      : (md.substring(0, 30000) || '(빈 페이지)')\n  }\n};"
+      },
+      "id": "b1f0c001-0000-4000-8000-000000000003",
+      "name": "페이지 준비",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=너는 쇼핑몰 크롤러의 페이지 판별기야.\n찾는 제품: '{{ $json.keyword }}' (사용자 원래 입력: '{{ $json.original_keyword }}')\n현재 페이지: {{ $json.url }}\n오늘 날짜: {{ $now.toISODate() }}\n\n이 페이지를 아래 중 하나로 판정해:\n- PRODUCT: 특정 제품 1개의 상세 페이지 또는 그 제품의 리뷰 페이지\n- LIST: 여러 제품이 나열된 페이지 (검색결과, 카테고리, 랭킹, 비교, 기사 속 제품 목록 등)\n- IRRELEVANT: 찾는 제품과 무관하거나, 차단/캡차/에러/빈 페이지\n\n[PRODUCT일 때]\n- reviews: 페이지에 있는 실제 소비자 리뷰/평가를 개수 제한 없이 전부 추출해.\n  - 각 content 맨 앞에 \"[Brand: 브랜드 | Product: 제품시리즈(없으면 General) | Model: 모델번호(없으면 Unknown) | Rating: X/5]\" 말머리를 붙여.\n  - published_at은 YYYY-MM-DD (없으면 null)\n  - 판매자 설명, 스펙, Q&A 안내문구는 리뷰가 아님.\n- next_links: 리뷰가 이 페이지에 없거나 일부만 있으면, 리뷰 전체/다음 리뷰 페이지로 가는 링크 (예: opinie, reviews, recenzje, bewertungen, avis, ?page=2 등)\n\n[LIST일 때]\n- reviews: []\n- next_links: 찾는 제품에 해당하는 개별 제품 페이지 링크를 우선으로 최대 5개.\n  제품 링크가 없으면 찾는 제품으로 더 좁혀지는 목록(하위 카테고리/검색결과) 링크.\n  광고, 로그인, 장바구니, 고객센터, 정렬/필터 토글, SNS 링크는 제외.\n\n[공통]\n- 링크는 마크다운에 실제로 있는 것만. 지어내지 마. 상대경로는 그대로 줘도 됨.\n\n설명이나 코드블록 없이 JSON 객체 하나만 출력해:\n{\"page_type\": \"PRODUCT\", \"reviews\": [{\"content_type\": \"REVIEW\", \"published_at\": null, \"content\": \"[Brand: LG | Product: WashCombo | Model: WM6998HBA | Rating: 5/5] 리뷰 원문\"}], \"next_links\": []}\n\n[페이지 마크다운]\n{{ $json.page_markdown }}",
+        "batching": {}
+      },
+      "id": "b1f0c001-0000-4000-8000-000000000004",
+      "name": "AI 페이지 판정 + 추출",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "responsesApiEnabled": false,
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "id": "b1f0c001-0000-4000-8000-000000000005",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        880,
+        200
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "jf1lMAgW0IKdj3sM",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// AI 판정 결과를 리뷰 행(reviews)과 다음 단계 링크(next)로 나눕니다.\nconst LINKS_PER_PAGE = 5;\nconst pages = $('페이지 준비').all().map(i => i.json);\n\nfunction makeHash(str) {\n  let h = 0;\n  const s = String(str).trim();\n  for (let i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h |= 0; }\n  return Math.abs(h).toString(36);\n}\n\nfunction normalize(link, base) {\n  if (typeof link !== 'string') return '';\n  let u = link.trim().replace(/^<|>$/g, '');\n  const md = u.match(/\\]\\((.+)\\)$/);          // [text](url) 형태로 오면 url만\n  if (md) u = md[1];\n  const uddg = u.match(/uddg=([^&]+)/);\n  if (uddg) { try { u = decodeURIComponent(uddg[1]); } catch (e) {} }\n  try {\n    const parsed = new URL(u, base);\n    parsed.hash = '';\n    return parsed.href;\n  } catch (e) {\n    return '';\n  }\n}\n\nconst reviews = [];\nconst nextMap = new Map();\nconst log = [];\n\n$input.all().forEach((item, i) => {\n  const p = pages[i];\n  if (!p) return;\n\n  let type = 'IRRELEVANT';\n  let revs = [];\n  let links = [];\n\n  if (p.is_ddg) {\n    type = 'SEARCH';\n    // 기사/랭킹/블로그보다 제품 페이지(숫자 ID 경로)를 먼저 방문\n    const isArticle = u => /magazyn|blog|poradnik|artyku|ranking|news|guide|ratgeber|forum/i.test(u);\n    const hasId = u => /\\/\\d{5,}/.test(u);\n    links = [...(p.ddg_links || [])].sort((a, b) => (isArticle(a) - isArticle(b)) || (hasId(b) - hasId(a)));\n  } else {\n    const raw = String(item.json.text || item.json.output || '{}');\n    try {\n      const m = raw.match(/\\{[\\s\\S]*\\}/);\n      const parsed = JSON.parse(m ? m[0] : raw);\n      type = String(parsed.page_type || 'IRRELEVANT').toUpperCase();\n      revs = Array.isArray(parsed.reviews) ? parsed.reviews : [];\n      links = Array.isArray(parsed.next_links) ? parsed.next_links : [];\n    } catch (e) {\n      type = 'PARSE_ERROR';\n    }\n  }\n\n  for (const v of revs) {\n    if (!v || !v.content) continue;\n    reviews.push({\n      voc_id: `EXT_${makeHash(p.url + String(v.content).substring(0, 120))}`,\n      source_site: p.site_name || 'External_Site',\n      category: p.category || 'E-commerce',\n      content_type: v.content_type || 'REVIEW',\n      content: String(v.content),\n      parent_id: p.url,\n      published_at: v.published_at || null\n    });\n  }\n\n  const visited = new Set(p.visited || []);\n  let added = 0;\n  const skip = { bad_url: 0, visited: 0, other_domain: [] };  // 링크가 왜 탈락했는지 (디버깅용)\n  let root = String(p.root_domain || '').replace(/^www\\./, '');\n  if (root.includes('duckduckgo')) root = '';  // site: 파싱 실패로 DDG 호스트가 들어오면 모든 링크가 탈락하므로 무시\n  if (type !== 'IRRELEVANT' && type !== 'PARSE_ERROR') {\n    for (const l of links) {\n      if (added >= (p.is_ddg ? 8 : LINKS_PER_PAGE)) break;\n      const url = normalize(l, p.url);\n      if (!url.startsWith('http')) { skip.bad_url++; continue; }\n      if (visited.has(url) || nextMap.has(url)) { skip.visited++; continue; }\n      let host = '';\n      try { host = new URL(url).hostname.replace(/^www\\./, ''); } catch (e) { skip.bad_url++; continue; }\n      if (host.includes('duckduckgo')) { skip.other_domain.push(host); continue; }  // DDG 광고/내부 링크\n      if (root && !host.endsWith(root)) { skip.other_domain.push(host); continue; }  // 양판점 밖으로 나가지 않음\n      nextMap.set(url, {\n        url,\n        depth: p.depth + 1,\n        root_domain: root || host,\n        keyword: p.keyword,\n        original_keyword: p.original_keyword,\n        category: p.category,\n        site_name: p.site_name,\n        country: p.country,\n        visited: p.visited\n      });\n      added++;\n    }\n  }\n\n  log.push({ depth: p.depth, url: p.url, type, reviews: revs.length, next_links: added, error: p.scrape_error, root_domain: p.root_domain, candidates: links.length, skip });\n});\n\nreturn [{ json: { reviews, next: [...nextMap.values()], log } }];"
+      },
+      "id": "b1f0c001-0000-4000-8000-000000000006",
+      "name": "결과 정리",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1180,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 다음 단계로 넘길 링크를 아이템으로 펼칩니다. 없으면 재귀 호출이 즉시 끝나도록 _noop 1개.\nconst next = $input.first().json.next || [];\nif (!next.length) return [{ json: { _noop: true } }];\nreturn next.map(json => ({ json }));"
+      },
+      "id": "b1f0c001-0000-4000-8000-000000000007",
+      "name": "다음 단계 링크",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "={{ $workflow.id }}",
+          "mode": "id"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "b1f0c001-0000-4000-8000-000000000008",
+      "name": "재귀 호출 (자기 자신)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1620,
+        0
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 이번 단계에서 얻은 리뷰 + 하위 단계(재귀)에서 얻은 리뷰를 합쳐 반환합니다.\nconst own = $('결과 정리').first().json.reviews || [];\nconst child = $input.all().map(i => i.json).filter(j => j && j.voc_id && j.content);\n\nconst uniq = new Map();\nfor (const r of [...own, ...child]) uniq.set(r.voc_id, r);\nreturn [...uniq.values()].map(json => ({ json }));"
+      },
+      "id": "b1f0c001-0000-4000-8000-000000000009",
+      "name": "최종 반환",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1840,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "입력 정리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "입력 정리": {
+      "main": [
+        [
+          {
+            "node": "ScrapingAnt (페이지 수집)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ScrapingAnt (페이지 수집)": {
+      "main": [
+        [
+          {
+            "node": "페이지 준비",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "페이지 준비": {
+      "main": [
+        [
+          {
+            "node": "AI 페이지 판정 + 추출",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI 페이지 판정 + 추출": {
+      "main": [
+        [
+          {
+            "node": "결과 정리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "결과 정리": {
+      "main": [
+        [
+          {
+            "node": "다음 단계 링크",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "다음 단계 링크": {
+      "main": [
+        [
+          {
+            "node": "재귀 호출 (자기 자신)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "재귀 호출 (자기 자신)": {
+      "main": [
+        [
+          {
+            "node": "최종 반환",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI 페이지 판정 + 추출",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "meta": {
+    "instanceId": "d03141eb250e7a977c1b8248ba83fa0d01dfabd4ff49fe0fd245066ddee8a4e9"
+  },
+  "tags": []
+}

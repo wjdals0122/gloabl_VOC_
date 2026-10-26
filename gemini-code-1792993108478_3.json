@@ -1,0 +1,406 @@
+{
+  "name": "[시트 3] ScrapingAnt 2-Depth 우회 크롤러 (무료 Gemini 최적화)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "ac422f46-4240-418f-8c38-ac76c0152d40",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.scrapingant.com/v2/markdown",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "url",
+              "value": "={{ $json.url }}"
+            },
+            {
+              "name": "browser",
+              "value": "true"
+            },
+            {
+              "name": "proxy_country",
+              "value": "={{ ($json.country || 'US').toLowerCase() }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "9fa43a53-cfeb-4961-887a-609976fdc026",
+      "name": "ScrapingAnt (Depth 1: 검색목록 수집)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Lg11B4qLEPE8WIuM",
+          "name": "ScrapingAnt API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawMd = $input.first().json?.markdown \vert{}\vert{} '';\nconst triggerData = $('Execute Workflow Trigger').first().json;\n\nreturn [{\n  json: {\n    url: triggerData.url,\n    category: triggerData.category,\n    site_name: triggerData.site_name,\n    country: triggerData.country || 'US',\n    keyword: triggerData.keyword,\n    truncated_markdown: rawMd.substring(0, 30000)\n  }\n}];"
+      },
+      "id": "2963872c-ad2d-43c5-9e47-185b09c94bbd",
+      "name": "마크다운 길이 제한 (토큰 보호)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=아래는 '{{ $json.keyword }}' 검색 결과 페이지({{ $json.url }})의 마크다운 텍스트야.\n여기서 개수 제한을 두지 말고, 검색 결과 본문에 등장하는 모든 '개별 제품 상세 페이지' 또는 '개별 게시글'의 URL(2-Depth)을 빠짐없이 추출해 줘.\n(주의: 광고 링크, 로그인, 단순 카테고리/필터 메뉴 링크는 제외하고 실제 제품/리뷰 상세 링크만 포함해. 상대 경로(/...)인 경우 반드시 {{ $json.url }}의 도메인을 붙여서 완전한 https:// URL로 변환해.)\n\n응답은 마크다운 코드블록(```json)이나 부연 설명 없이 반드시 아래 JSON 배열 포맷으로만 출력해:\n[\"https://상세페이지URL1\", \"https://상세페이지URL2\"]\n\n[마크다운 본문]\n{{ $json.truncated_markdown }}",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        760,
+        0
+      ],
+      "id": "d4d92262-5a1b-4d92-8c4d-9297e3ad2342",
+      "name": "2-Depth 상세링크 추출"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "responsesApiEnabled": false,
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        760,
+        180
+      ],
+      "id": "2ca60e6f-9db8-45b4-86b1-b7a76e49d96f",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "jf1lMAgW0IKdj3sM",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const firstItem = $input.first().json;\nconst rawText = firstItem.text || firstItem.output || firstItem.response || '[]';\n\nconst meta = $('마크다운 길이 제한 (토큰 보호)').first().json || {};\nconst parentUrl = meta.url || '';\n\nlet urls = [];\ntry {\n  const match = String(rawText).match(/\\[[\\s\\S]*\\]/);\n  const jsonStr = match ? match[0] : String(rawText).replace(/```json|```/g, '').trim();\n  const parsed = JSON.parse(jsonStr);\n  urls = Array.isArray(parsed) ? parsed : (parsed.urls || parsed.links || []);\n} catch (e) {\n  urls = [];\n}\n\nconst uniqueUrls = [...new Set(urls.filter(u => typeof u === 'string' && u.startsWith('http')))];\n\nreturn uniqueUrls.map(detailUrl => ({\n  json: {\n    url: detailUrl,\n    detail_url: detailUrl,\n    category: meta.category || 'E-commerce',\n    site_name: meta.site_name || '',\n    country: meta.country || 'US',\n    parent_url: parentUrl\n  }\n}));"
+      },
+      "id": "99b72719-51e6-4cee-bae7-580a8b8cac06",
+      "name": "2-Depth 상세링크 분리",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "0956aeea-8c08-4ff4-8a56-dd0490dc64ce",
+      "name": "Loop Over 2-Depth Pages",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1328,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "[https://api.scrapingant.com/v2/markdown](https://api.scrapingant.com/v2/markdown)",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "url",
+              "value": "={{ $json.detail_url }}"
+            },
+            {
+              "name": "browser",
+              "value": "true"
+            },
+            {
+              "name": "proxy_country",
+              "value": "={{ ($json.country || 'US').toLowerCase() }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "f26a4a9b-2c13-4ecd-bbd3-c82080686bfe",
+      "name": "ScrapingAnt (Depth 2: 상세페이지 수집)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1568,
+        80
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Lg11B4qLEPE8WIuM",
+          "name": "ScrapingAnt API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawMd = $input.first().json?.markdown || '';\nconst currentItem = $('Loop Over 2-Depth Pages').first().json;\n\nreturn [{\n  json: {\n    detail_url: currentItem.detail_url,\n    category: currentItem.category,\n    site_name: currentItem.site_name,\n    truncated_detail_markdown: rawMd.substring(0, 30000)\n  }\n}];"
+      },
+      "id": "7913f61e-a320-4946-933a-66fd5c2e875d",
+      "name": "상세 마크다운 절삭",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1840,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=아래는 상세 페이지({{ $json.detail_url }})의 마크다운 텍스트야. (오늘 기준 날짜: {{ $now.toISODate() }})\n\n[추출 규칙]\n1. 페이지 상단 제목이나 스펙 표에서 아래 3가지 정보를 정확히 찾아내:\n   - 브랜드명 (예: LG, Samsung, GE, Whirlpool, Bosch, Beko, Electrolux 등)\n   - 제품 시리즈/라인업명 (예: WashCombo, Bespoke AI Combo, Serie 8 등. 없으면 General)\n   - 상세 모델 번호 (예: WM6998HBA, WDU28520PL 등 영문+숫자 조합 코드. 없으면 Unknown)\n2. 개수 제한을 두지 말고, 페이지 마크다운 내에 존재하는 모든 실제 소비자 구매 리뷰(REVIEW), 게시글 본문(POST), 댓글/질문(COMMENT)들을 빠짐없이 개별 추출해.\n3. 작성일자를 찾아 `YYYY-MM-DD` 형식으로 변환해. (없으면 null)\n4. 각 `content`의 맨 앞에 반드시 `[Brand: 브랜드명 | Product: 제품시리즈명 | Model: 모델번호 | Rating: X/5]` 말머리를 붙여서 출력해!\n\n응답은 마크다운 코드블록(```json)이나 부연 설명 없이 반드시 아래 JSON 배열 포맷으로만 출력해:\n[\n  {\n    \"content_type\": \"REVIEW\",\n    \"published_at\": \"2026-10-15\",\n    \"content\": \"[Brand: LG | Product: WashCombo | Model: WM6998HBA | Rating: 5/5] 추출된 소비자 의견 원문 전체...\"\n  }\n]\n\n[상세페이지 마크다운]\n{{ $json.truncated_detail_markdown }}",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        2120,
+        80
+      ],
+      "id": "314b1f75-71d0-4628-988e-53c2b9b02957",
+      "name": "개별 리뷰/VOC 추출"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "responsesApiEnabled": false,
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        2120,
+        240
+      ],
+      "id": "8048dd74-2326-4dec-a455-3729aa6f0129",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "jf1lMAgW0IKdj3sM",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const firstItem = $input.first().json || {};\nconst rawText = firstItem.text || firstItem.output || firstItem.response || '[]';\nconst meta = $('상세 마크다운 절삭').first().json \vert{}\vert{} {};\nconst triggerData = $('Execute Workflow Trigger').first().json || {};\n\nconst targetUrl = meta.detail_url || triggerData.url || '';\n\nlet domainTag = meta.site_name || triggerData.site_name;\nif (!domainTag && targetUrl) {\n  try {\n    domainTag = new URL(targetUrl).hostname.replace('www.', '');\n  } catch (e) {\n    domainTag = 'External_Site';\n  }\n}\n\nlet vocList = [];\ntry {\n  const match = String(rawText).match(/\\[[\\s\\S]*\\]/);\n  const jsonStr = match ? match[0] : String(rawText).replace(/```json|```/g, '').trim();\n  const parsed = JSON.parse(jsonStr);\n  vocList = Array.isArray(parsed) ? parsed : (parsed.reviews || parsed.items || [parsed]);\n} catch (e) {\n  vocList = [];\n}\n\nfunction makeHash(str) {\n  let hash = 0;\n  const cleanStr = String(str).trim();\n  for (let i = 0; i < cleanStr.length; i++) {\n    hash = ((hash << 5) - hash) + cleanStr.charCodeAt(i);\n    hash |= 0;\n  }\n  return Math.abs(hash).toString(36);\n}\n\nreturn vocList\n  .filter(v => v && v.content)\n  .map((v) => ({\n    json: {\n      voc_id: `EXT_${makeHash(targetUrl + v.content.substring(0, 120))}`,\n      source_site: domainTag || 'External_Site',\n      category: meta.category || triggerData.category || 'E-commerce',\n      content_type: v.content_type || 'REVIEW',\n      content: v.content || '',\n      parent_id: targetUrl,\n      published_at: v.published_at || null\n    }\n  }));"
+      },
+      "id": "6ef0d33f-4247-4510-b89d-1355e6497924",
+      "name": "VOC 스키마 변환 (Row 생성)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2448,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const allReviews = $items(\"VOC 스키마 변환 (Row 생성)\").map(item => ({ json: item.json }));\n  return allReviews;\n} catch (e) {\n  return [];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1568,
+        -96
+      ],
+      "id": "1f06c639-b8ee-4a23-babe-0434a50f4f35",
+      "name": "최종 반환용 Code"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "ScrapingAnt (Depth 1: 검색목록 수집)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ScrapingAnt (Depth 1: 검색목록 수집)": {
+      "main": [
+        [
+          {
+            "node": "마크다운 길이 제한 (토큰 보호)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "마크다운 길이 제한 (토큰 보호)": {
+      "main": [
+        [
+          {
+            "node": "2-Depth 상세링크 추출",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2-Depth 상세링크 추출": {
+      "main": [
+        [
+          {
+            "node": "2-Depth 상세링크 분리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "2-Depth 상세링크 추출",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2-Depth 상세링크 분리": {
+      "main": [
+        [
+          {
+            "node": "Loop Over 2-Depth Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over 2-Depth Pages": {
+      "main": [
+        [
+          {
+            "node": "최종 반환용 Code",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ScrapingAnt (Depth 2: 상세페이지 수집)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ScrapingAnt (Depth 2: 상세페이지 수집)": {
+      "main": [
+        [
+          {
+            "node": "상세 마크다운 절삭",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "상세 마크다운 절삭": {
+      "main": [
+        [
+          {
+            "node": "개별 리뷰/VOC 추출",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "개별 리뷰/VOC 추출": {
+      "main": [
+        [
+          {
+            "node": "VOC 스키마 변환 (Row 생성)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "개별 리뷰/VOC 추출",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VOC 스키마 변환 (Row 생성)": {
+      "main": [
+        [
+          {
+            "node": "Loop Over 2-Depth Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

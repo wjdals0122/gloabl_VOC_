@@ -1,0 +1,265 @@
+{
+  "name": "[시트 1] 마스터 컨트롤러 (수집 ➔ LG AI 인사이트 배치 분석 ➔ Supabase 적재)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voc-crawler-start",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "master-webhook-01",
+      "name": "Webhook (UI 입력 수신)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [140, 360],
+      "webhookId": "voc-crawler-start"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "YOUR_FREE_GEMINI_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"너는 글로벌 마켓 리서치 전문가야.\\n입력된 대상 국가: {{ $json.body.country }}\\n입력된 제품 키워드: {{ $json.body.keyword }}\\n\\n[사전 처리 규칙]\\n1. 입력된 국가명을 표준 2자리 국가 코드(US, KR, JP, DE, UK 등)로 내부 변환해.\\n2. 해당 국가 코드에 맞는 현지 도메인과 현지어 검색 키워드를 조합해서 '검색 결과 페이지 URL(1-Depth)' 리스트를 생성해 줘.\\n3. 반드시 Reddit 검색 링크 1개와 해당 국가의 대표 E-commerce, Tech Review, Community/Forum 사이트를 포함해야 해.\\n4. 존재하지 않는 상세 페이지 URL을 지어내지 말고 실제 검색 쿼리 URL 패턴을 사용해.\\n\\n응답은 반드시 아래 JSON 배열 포맷으로만 출력해:\\n[{\\\"country_code\\\": \\\"US\\\", \\\"url\\\": \\\"https://...\\\", \\\"category\\\": \\\"E-commerce | Community/Forum | Tech Review | Price Comparison 중 택1\\\", \\\"site_name\\\": \\\"BestBuy, Amazon_US, Reddit 등 명확한 사이트명\\\"}]\"\n    }]\n  }],\n  \"generationConfig\": {\n    \"responseMimeType\": \"application/json\"\n  }\n}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "master-gemini-links-02",
+      "name": "Gemini (1-Depth 검색링크 생성)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [360, 360],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawText = $input.first().json?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';\nconst country = $('Webhook (UI 입력 수신)').first().json.body?.country || 'US';\nconst keyword = $('Webhook (UI 입력 수신)').first().json.body?.keyword || '';\n\nlet parsedList = [];\ntry {\n  parsedList = JSON.parse(rawText.replace(/```json|```/g, '').trim());\n} catch (e) {\n  parsedList = [];\n}\n\nreturn parsedList.map(item => ({\n  json: {\n    url: item.url,\n    category: item.category || 'Community/Forum',\n    site_name: item.site_name || 'Unknown_Site',\n    country: item.country_code || country,\n    keyword: keyword\n  }\n}));"
+      },
+      "id": "master-split-links-03",
+      "name": "1-Depth 리스트 분리",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [580, 360]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "master-loop-links-04",
+      "name": "Loop Over 1-Depth Links",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [800, 360]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "strict" },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.url }}",
+                    "rightValue": "reddit.com",
+                    "operator": { "type": "string", "operation": "contains" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Reddit"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "master-switch-05",
+      "name": "Reddit vs 일반사이트 분기",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [1040, 480]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_SHEET_2_ID",
+          "mode": "id"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "master-call-sheet2-06",
+      "name": "Call [시트 2: Reddit 수집기]",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1280, 380],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_SHEET_3_ID",
+          "mode": "id"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "master-call-sheet3-07",
+      "name": "Call [시트 3: ScrapingAnt 수집기]",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1280, 580],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// [1. 입력 취합 및 15개 단위 배치 생성]\n// 시트 2와 시트 3에서 수집된 모든 1차 VOC 행들을 모아서 무료 Gemini API 호출 횟수를 줄이기 위해 15개씩 묶습니다.\nconst allVocItems = $input.all().map(item => item.json).filter(d => d && d.voc_id && d.content);\n\nconst BATCH_SIZE = 15;\nconst batches = [];\n\nfor (let i = 0; i < allVocItems.length; i += BATCH_SIZE) {\n  const chunk = allVocItems.slice(i, i + BATCH_SIZE);\n  batches.push({\n    json: {\n      original_items: chunk,\n      // AI에게는 토큰 절약을 위해 voc_id와 content(최대 800자 절삭)만 넘깁니다.\n      llm_payload: JSON.stringify(chunk.map(v => ({\n        voc_id: v.voc_id,\n        content: String(v.content).substring(0, 800)\n      })))\n    }\n  });\n}\n\nreturn batches;"
+      },
+      "id": "master-batch-prep-08",
+      "name": "1. 수집 VOC 취합 및 15개씩 묶기 (Batching)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1080, 160]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "master-loop-batches-09",
+      "name": "Loop Over VOC Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1320, 160]
+    },
+    {
+      "parameters": {
+        "amount": 4,
+        "unit": "seconds"
+      },
+      "id": "master-wait-llm-10",
+      "name": "Wait 4s (무료 Gemini 보호)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1560, 240]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "YOUR_FREE_GEMINI_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"너는 'LG전자(LG Electronics)'의 글로벌 마켓 리서치 및 VOC 분석 AI야.\\n아래 JSON 배열은 해외 사이트에서 수집된 소비자 의견(VOC) 목록이야. 각 아이템의 `voc_id`와 `content`를 읽고 다음 규칙에 따라 분석해서 JSON 배열로 반환해.\\n\\n[분석 규칙]\\n1. kr_summary (한국어 요약 번역): 원문이 짧으면 자연스러운 한국어로 번역하고, 길면 인사말을 빼고 핵심 주장과 제품 장단점만 한국어 1~2문장으로 명확히 요약 번역해.\\n2. ai_sentiment (감정 분석): \\\"POSITIVE\\\", \\\"NEUTRAL\\\", \\\"NEGATIVE\\\" 중 택1.\\n3. user_intent (작성자 의도): 실사용 후기면 \\\"EXPERIENCE\\\", 구매 전 단순 질문이면 \\\"QUESTION\\\", 불량/환불/불만 토로면 \\\"COMPLAINT\\\", 브랜드 간 비교면 \\\"COMPARISON\\\" 중 택1.\\n4. topic_tags (핵심 속성 태그): 본문에서 언급된 제품 기능/속성(예: 세척력, 건조시간, 소음, 디자인, 가격, AS, 앱연동, 배터리 등)을 한국어 명사 배열(최대 3개)로 추출해.\\n5. competitors (언급된 경쟁사): 우리 회사는 'LG전자(LG, Tromm, WashTower, WashCombo, ThinQ, Signature 등)'야. 본문에 LG 이외의 타사 브랜드나 타사 제품명(예: Samsung, Bespoke, Whirlpool, GE, Miele, Bosch, Dyson, Oura 등)이 언급되었다면 해당 브랜드/제품명을 배열로 추출해. (없으면 빈 배열 [])\\n6. is_urgent (긴급도): 화재, 연기, 누수, 감전, 완전 작동 불능 등 심각한 안전/품질 이슈일 때만 true, 그 외에는 false.\\n7. lg_mentioned (자사 언급 여부): 본문에 LG전자나 LG의 제품 라인업이 직접 언급되었으면 true, 아니면 false.\\n\\n[응답 포맷 (반드시 아래 JSON 배열 구조로만 출력)]\\n[{\\\"voc_id\\\": \\\"입력받은 voc_id 그대로\\\", \\\"kr_summary\\\": \\\"한국어 요약 번역\\\", \\\"ai_sentiment\\\": \\\"POSITIVE\\\", \\\"user_intent\\\": \\\"EXPERIENCE\\\", \\\"topic_tags\\\": [\\\"속성1\\\"], \\\"competitors\\\": [\\\"타사명1\\\"], \\\"is_urgent\\\": false, \\\"lg_mentioned\\\": true}]\\n\\n[입력 VOC 배열]\\n{{ $json.llm_payload }}\"\n    }]\n  }],\n  \"generationConfig\": {\n    \"responseMimeType\": \"application/json\"\n  }\n}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "master-gemini-insight-11",
+      "name": "2. AI 가공 (LG 비즈니스 인사이트 추출)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 240],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// [3. 최종 병합 (Merge)]\n// 1차 수집 원본 데이터(original_items)와 2차 AI 분석 결과(aiResults)를 voc_id 기준으로 1:1 결합합니다.\nconst originalItems = $('Loop Over VOC Batches').first().json.original_items || [];\nconst rawAiText = $input.first().json?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';\n\nlet aiResults = [];\ntry {\n  aiResults = JSON.parse(rawAiText.replace(/```json|```/g, '').trim());\n} catch (e) {\n  aiResults = [];\n}\n\n// 빠른 매칭을 위해 voc_id를 Key로 하는 Map 생성\nconst aiMap = {};\nfor (const ai of aiResults) {\n  if (ai && ai.voc_id) {\n    aiMap[ai.voc_id] = ai;\n  }\n}\n\n// 기존 스키마를 훼손하지 않고 뒤쪽에 AI 분석 칼럼만 이어 붙여서 반환\nreturn originalItems.map(orig => {\n  const ai = aiMap[orig.voc_id] || {};\n  return {\n    json: {\n      voc_id: orig.voc_id,\n      source_site: orig.source_site || 'Unknown',\n      category: orig.category || 'Community/Forum',\n      content_type: orig.content_type || 'POST',\n      content: orig.content || '',\n      parent_id: orig.parent_id || null,\n      kr_summary: ai.kr_summary || '(AI 요약 실패 또는 내용 없음)',\n      ai_sentiment: ai.ai_sentiment || 'NEUTRAL',\n      user_intent: ai.user_intent || 'EXPERIENCE',\n      topic_tags: Array.isArray(ai.topic_tags) ? ai.topic_tags : [],\n      competitors: Array.isArray(ai.competitors) ? ai.competitors : [],\n      is_urgent: Boolean(ai.is_urgent),\n      ai_metadata: {\n        lg_mentioned: Boolean(ai.lg_mentioned),\n        analyzed_at: new Date().toISOString()\n      }\n    }\n  };\n});"
+      },
+      "id": "master-merge-schema-12",
+      "name": "3. 최종 병합 (1차 스키마 + 2차 AI 인사이트)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2000, 240]
+    },
+    {
+      "parameters": {
+        "tableId": "global_voc_insights",
+        "dataToSend": "autoMapInputData"
+      },
+      "id": "master-supabase-insert-13",
+      "name": "4. 저장 (Supabase DB Insert)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2240, 240],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Webhook (UI 입력 수신)": {
+      "main": [[{ "node": "Gemini (1-Depth 검색링크 생성)", "type": "main", "index": 0 }]]
+    },
+    "Gemini (1-Depth 검색링크 생성)": {
+      "main": [[{ "node": "1-Depth 리스트 분리", "type": "main", "index": 0 }]]
+    },
+    "1-Depth 리스트 분리": {
+      "main": [[{ "node": "Loop Over 1-Depth Links", "type": "main", "index": 0 }]]
+    },
+    "Loop Over 1-Depth Links": {
+      "main": [
+        [{ "node": "1. 수집 VOC 취합 및 15개씩 묶기 (Batching)", "type": "main", "index": 0 }],
+        [{ "node": "Reddit vs 일반사이트 분기", "type": "main", "index": 0 }]
+      ]
+    },
+    "Reddit vs 일반사이트 분기": {
+      "main": [
+        [{ "node": "Call [시트 2: Reddit 수집기]", "type": "main", "index": 0 }],
+        [{ "node": "Call [시트 3: ScrapingAnt 수집기]", "type": "main", "index": 0 }]
+      ]
+    },
+    "Call [시트 2: Reddit 수집기]": {
+      "main": [[{ "node": "Loop Over 1-Depth Links", "type": "main", "index": 0 }]]
+    },
+    "Call [시트 3: ScrapingAnt 수집기]": {
+      "main": [[{ "node": "Loop Over 1-Depth Links", "type": "main", "index": 0 }]]
+    },
+    "1. 수집 VOC 취합 및 15개씩 묶기 (Batching)": {
+      "main": [[{ "node": "Loop Over VOC Batches", "type": "main", "index": 0 }]]
+    },
+    "Loop Over VOC Batches": {
+      "main": [
+        [],
+        [{ "node": "Wait 4s (무료 Gemini 보호)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Wait 4s (무료 Gemini 보호)": {
+      "main": [[{ "node": "2. AI 가공 (LG 비즈니스 인사이트 추출)", "type": "main", "index": 0 }]]
+    },
+    "2. AI 가공 (LG 비즈니스 인사이트 추출)": {
+      "main": [[{ "node": "3. 최종 병합 (1차 스키마 + 2차 AI 인사이트)", "type": "main", "index": 0 }]]
+    },
+    "3. 최종 병합 (1차 스키마 + 2차 AI 인사이트)": {
+      "main": [[{ "node": "4. 저장 (Supabase DB Insert)", "type": "main", "index": 0 }]]
+    },
+    "4. 저장 (Supabase DB Insert)": {
+      "main": [[{ "node": "Loop Over VOC Batches", "type": "main", "index": 0 }]]
+    }
+  }
+}

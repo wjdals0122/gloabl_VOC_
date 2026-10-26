@@ -442,6 +442,10 @@ body {
   display: block;
 }
 
+[data-theme="dark"] .brand-logo-img {
+  content: url("../images/lg-voc-lab-header-logo-dark.png");
+}
+
 @media (max-width: 640px) {
   .brand-logo-img {
     height: 36px;

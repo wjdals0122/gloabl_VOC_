@@ -37,16 +37,6 @@ const SourceView = {
 
     const channelEl = document.getElementById('select-channel');
     if (channelEl) this.state.channel = channelEl.value || 'all';
-
-    const excludeEl = document.getElementById('input-explore-exclude');
-    if (excludeEl && excludeEl.value) {
-      this.state.excludedKeywords = excludeEl.value
-        .split(',')
-        .map(w => w.trim().replace(/^#/, ''))
-        .filter(w => w.length > 0);
-    } else {
-      this.state.excludedKeywords = [];
-    }
   },
 
   bindEvents() {
@@ -96,26 +86,6 @@ const SourceView = {
         this.state.channel = e.target.value;
       });
     }
-
-    // 6. 제외 키워드 입력 필드 엔터키
-    const excludeInput = document.getElementById('input-explore-exclude');
-    if (excludeInput) {
-      excludeInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          this.startCollectionAndAnalysis();
-        }
-      });
-    }
-  },
-
-  setPresetKeyword(keyword) {
-    const keywordInput = document.getElementById('input-product');
-    if (keywordInput) {
-      keywordInput.value = keyword;
-      this.state.keyword = keyword;
-    }
-    this.startCollectionAndAnalysis();
   },
 
   startCollectionAndAnalysis() {
@@ -125,7 +95,6 @@ const SourceView = {
     const keyword = this.state.keyword ? this.state.keyword.trim() : 'LG 워시콤보';
     const period = this.state.period || '1m';
     const channel = this.state.channel || 'all';
-    const excludedKeywords = this.state.excludedKeywords || [];
 
     // [수집 결과] 탭으로 전환하여 분석 대시보드 실행
     App.navigateToTab('tab-results', {
@@ -134,16 +103,15 @@ const SourceView = {
       product: keyword,
       period: period,
       channel: channel,
-      excludedKeywords: excludedKeywords,
       autoStart: true
     });
   },
 
   getChannelName(channel) {
     switch (channel) {
-      case 'community': return '커뮤니티 전용';
-      case 'reviews': return '제품리뷰 전용';
-      default: return '커뮤니티 + 제품리뷰 통합';
+      case 'community': return '커뮤니티';
+      case 'reviews': return '제품리뷰';
+      default: return '커뮤니티 + 제품리뷰 (통합)';
     }
   },
 
@@ -161,79 +129,8 @@ const SourceView = {
     const container = document.getElementById(this.containerId);
     if (!container) return;
 
-    // 출처 선택 테이블 및 고정바 완전 삭제 후, 신뢰도 높은 채널 인텔리전스 가이드 렌더링
-    container.innerHTML = `
-      <div class="voc-exploration-guide-section">
-        <!-- 추천 검색 키워드 칩스 -->
-        <div class="explore-preset-bar">
-          <span class="preset-label">🔥 추천 분석 키워드:</span>
-          <div class="preset-chips">
-            <button type="button" class="preset-chip" onclick="SourceView.setPresetKeyword('LG 워시콤보')">#LG 워시콤보</button>
-            <button type="button" class="preset-chip" onclick="SourceView.setPresetKeyword('LG OLED evo G4')">#LG OLED evo G4</button>
-            <button type="button" class="preset-chip" onclick="SourceView.setPresetKeyword('LG 스탠바이미')">#LG 스탠바이미</button>
-            <button type="button" class="preset-chip" onclick="SourceView.setPresetKeyword('LG 스타일러')">#LG 스타일러</button>
-            <button type="button" class="preset-chip" onclick="SourceView.setPresetKeyword('LG 인스타뷰 냉장고')">#LG 인스타뷰 냉장고</button>
-          </div>
-        </div>
-
-        <!-- 3대 수집 채널 및 분석 역량 안내 카드 -->
-        <div class="channel-coverage-grid">
-          <!-- 채널 1: 커뮤니티 -->
-          <div class="channel-info-card">
-            <div class="card-icon-wrap icon-community">💬</div>
-            <div class="card-body">
-              <div class="card-badge">채널 옵션 1</div>
-              <h3 class="card-title">커뮤니티 (Community)</h3>
-              <p class="card-desc">Reddit, AVS Forum, 현지 테크 커뮤니티, 카페 등의 솔직한 실사용 토론 및 설치/내구성 이슈를 수집합니다.</p>
-              <div class="card-sources-tag">주요 출처: Reddit, AVS Forum, Wykop, Clien 등</div>
-            </div>
-          </div>
-
-          <!-- 채널 2: 제품리뷰 -->
-          <div class="channel-info-card">
-            <div class="card-icon-wrap icon-reviews">⭐</div>
-            <div class="card-body">
-              <div class="card-badge">채널 옵션 2</div>
-              <h3 class="card-title">제품리뷰 (Product Reviews)</h3>
-              <p class="card-desc">Best Buy, MediaMarkt, 전문 테크 평가 사이트(RTINGS 등)의 구매 평점과 상세 평가 의견을 정밀 분석합니다.</p>
-              <div class="card-sources-tag">주요 출처: Best Buy, RTINGS, Home Depot, Danawa 등</div>
-            </div>
-          </div>
-
-          <!-- 채널 3: 통합 인텔리전스 -->
-          <div class="channel-info-card highlight-card">
-            <div class="card-icon-wrap icon-combined">📊</div>
-            <div class="card-body">
-              <div class="card-badge badge-recommended">추천 채널 옵션 3</div>
-              <h3 class="card-title">커뮤니티 + 제품리뷰 (통합)</h3>
-              <p class="card-desc">구매 전 탐색(커뮤니티)과 구매 후 평가(제품리뷰)를 크로스 분석하여 고객 여정 전반의 긍부정 및 키워드 순위를 제공합니다.</p>
-              <div class="card-sources-tag">언급량 추이 · 긍/부정 비율 · 순위 키워드 자동 산출</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 분석 파이프라인 프로세스 띠 배너 -->
-        <div class="pipeline-flow-banner">
-          <div class="flow-step">
-            <span class="step-num">01</span>
-            <span class="step-title">글로벌 채널 수집</span>
-            <span class="step-sub">국가/기간별 다채널 데이터 스크래핑</span>
-          </div>
-          <div class="flow-arrow">→</div>
-          <div class="flow-step">
-            <span class="step-num">02</span>
-            <span class="step-title">Gemini AI 정밀 분석</span>
-            <span class="step-sub">긍부정 판별 · 핵심 키워드 클러스터링</span>
-          </div>
-          <div class="flow-arrow">→</div>
-          <div class="flow-step">
-            <span class="step-num">03</span>
-            <span class="step-title">시계열 & 채널 비교 대시보드</span>
-            <span class="step-sub">언급량 추이 및 순위 시각화 리포트</span>
-          </div>
-        </div>
-      </div>
-    `;
+    // 추천 분석 키워드부터 아래 모두 삭제 (사용자 요청 반영: 검색 카드 단독의 깔끔한 미니멀 레이아웃 유지)
+    container.innerHTML = '';
   }
 };
 

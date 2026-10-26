@@ -25,18 +25,16 @@ const ResultsView = {
     rawCsvText: '',
     results: [],
 
-    // 1. 언급 대상 필터: 'all' | 'lg' | 'competitor'
-    targetFilter: 'all',
-    selectedCompetitor: 'all', // 'all' 또는 특정 브랜드명 ('Samsung', 'GE', 'Whirlpool' 등)
-
-    // 2. 감성 필터: 'all' | 'positive' | 'neutral' | 'negative'
+    // 1. 조건 필터 상태
+    searchFilter: '',
+    sourceFilter: 'all',
+    selectedBrands: new Set(['all']),
     sentimentFilter: 'all',
 
-    // 3. 출처 사이트 필터 (Set)
-    selectedSites: new Set(),
-
-    // 4. 텍스트 검색 필터
-    searchFilter: '',
+    // 2. VOC 데이터 내보내기 설정
+    downloadScope: 'filtered', // 'filtered' | 'all'
+    downloadType: 'analysis', // 'analysis' | 'summary'
+    includeRawText: false,
 
     expandedSiteNames: new Set(),
     expandedReviewIds: new Set(),
@@ -66,11 +64,13 @@ const ResultsView = {
     this.state.selectedSources = sources || [];
     this.state.rawCsvText = '';
     this.state.results = [];
-    this.state.targetFilter = 'all';
-    this.state.selectedCompetitor = 'all';
-    this.state.sentimentFilter = 'all';
-    this.state.selectedSites.clear();
     this.state.searchFilter = '';
+    this.state.sourceFilter = 'all';
+    this.state.selectedBrands = new Set(['all']);
+    this.state.sentimentFilter = 'all';
+    this.state.downloadScope = 'filtered';
+    this.state.downloadType = 'analysis';
+    this.state.includeRawText = false;
     this.state.expandedSiteNames.clear();
     this.state.expandedReviewIds.clear();
 
@@ -294,124 +294,142 @@ const ResultsView = {
 
   getFilterDescription() {
     const parts = [];
-    if (this.state.targetFilter === 'lg') parts.push('언급 대상: LG 직접 언급');
-    else if (this.state.targetFilter === 'competitor') {
-      parts.push(this.state.selectedCompetitor !== 'all' ? `언급 대상: 경쟁사(${this.state.selectedCompetitor})` : '언급 대상: 경쟁사 언급 전체');
+    if (this.state.searchFilter) parts.push(`키워드: "${this.state.searchFilter}"`);
+    if (this.state.sourceFilter && this.state.sourceFilter !== 'all') parts.push(`출처: ${this.state.sourceFilter}`);
+    if (!this.state.selectedBrands.has('all')) {
+      parts.push(`브랜드: ${Array.from(this.state.selectedBrands).join(', ')}`);
     } else {
-      parts.push('언급 대상: 전체');
+      parts.push('브랜드: 전체');
     }
-
     if (this.state.sentimentFilter === 'positive') parts.push('감성: 긍정');
     else if (this.state.sentimentFilter === 'neutral') parts.push('감성: 중립');
     else if (this.state.sentimentFilter === 'negative') parts.push('감성: 부정');
     else parts.push('감성: 전체');
-
-    if (this.state.selectedSites.size > 0) {
-      parts.push(`출처: ${Array.from(this.state.selectedSites).join(', ')}`);
-    }
-    if (this.state.searchFilter) {
-      parts.push(`검색어: "${this.state.searchFilter}"`);
-    }
     return parts.join(' | ');
   },
 
-  // 1. 분석 리포트 Excel (다중 시트: 요약 + 필터링 + 원본)
-  downloadExcelReport() {
-    if (this.state.results.length === 0) {
-      alert('다운로드할 수집 결과 데이터가 없습니다.');
-      return;
-    }
-    const filtered = this.getFilteredResults();
-    const desc = this.getFilterDescription();
-    const xml = CsvUtils.generateExcelReport(
-      this.state.country,
-      this.state.product,
-      this.state.results,
-      filtered,
-      desc
-    );
-    const filename = `VOC_Intelligence_Report_${this.state.country}_${this.state.product.replace(/\s+/g, '_')}.xls`;
-    CsvUtils.downloadExcelBlob(xml, filename);
+  // 필터 조작 메서드
+  setSearchFilter(query) {
+    this.state.searchFilter = query || '';
+    this.renderResultsBody();
   },
 
-  // 2. 현재 결과 CSV · N건 (현재 검색·필터가 적용된 데이터만)
-  downloadFilteredCsv() {
-    const filtered = this.getFilteredResults();
-    if (filtered.length === 0) {
-      alert('현재 필터 조건에 해당하는 리뷰가 없습니다.');
-      return;
+  clearSearchFilter() {
+    this.state.searchFilter = '';
+    this.renderResultsBody();
+    const input = document.getElementById('voc-keyword-search');
+    if (input) {
+      input.value = '';
+      input.focus();
     }
-    const filename = `voc_filtered_${this.state.country}_${this.state.product.replace(/\s+/g, '_')}_${filtered.length}건.csv`;
-    CsvUtils.downloadFilteredCsv(this.state.country, this.state.product, filtered, filename);
   },
 
-  // 3. 전체 수집 데이터 CSV · N건 (검색·필터와 관계없이 전체 데이터)
-  downloadRawCsv() {
-    const all = this.state.results;
-    if (!all || all.length === 0) {
-      alert('다운로드할 수집 원본 데이터가 없습니다.');
-      return;
-    }
-    const filename = `voc_all_${this.state.country}_${this.state.product.replace(/\s+/g, '_')}_${all.length}건.csv`;
-    if (this.state.rawCsvText) {
-      CsvUtils.downloadCsvText(this.state.rawCsvText, filename);
+  setSourceFilter(sourceName) {
+    this.state.sourceFilter = sourceName || 'all';
+    this.renderResultsBody();
+  },
+
+  setBrandFilter(brand) {
+    if (brand === 'all') {
+      this.state.selectedBrands.clear();
+      this.state.selectedBrands.add('all');
     } else {
-      CsvUtils.downloadFilteredCsv(this.state.country, this.state.product, all, filename);
+      this.state.selectedBrands.clear();
+      this.state.selectedBrands.add(brand);
     }
+    this.renderResultsBody();
   },
 
-  // 하위 호환
-  downloadResultCsv() {
-    this.downloadExcelReport();
-  },
-
-  // 필터 버튼 클릭 핸들러
-  setTargetFilter(target) {
-    this.state.targetFilter = target;
-    if (target !== 'competitor') {
-      this.state.selectedCompetitor = 'all';
+  toggleBrandFilter(brand) {
+    if (this.state.selectedBrands.has('all')) {
+      this.state.selectedBrands.clear();
+    }
+    if (this.state.selectedBrands.has(brand)) {
+      this.state.selectedBrands.delete(brand);
+    } else {
+      this.state.selectedBrands.add(brand);
+    }
+    if (this.state.selectedBrands.size === 0) {
+      this.state.selectedBrands.add('all');
     }
     this.renderResultsBody();
   },
 
   setSentimentFilter(sentiment) {
-    this.state.sentimentFilter = sentiment;
+    this.state.sentimentFilter = sentiment || 'all';
     this.renderResultsBody();
   },
 
-  setCompetitorFilter(compName) {
-    this.state.targetFilter = 'competitor';
-    this.state.selectedCompetitor = compName || 'all';
+  resetFilters() {
+    this.state.searchFilter = '';
+    this.state.sourceFilter = 'all';
+    this.state.selectedBrands.clear();
+    this.state.selectedBrands.add('all');
+    this.state.sentimentFilter = 'all';
     this.renderResultsBody();
   },
 
-  toggleAllSites() {
-    this.state.selectedSites.clear();
+  // VOC 내보내기 옵션 조작 메서드
+  setDownloadScope(scope) {
+    this.state.downloadScope = scope || 'filtered';
     this.renderResultsBody();
   },
 
-  toggleSiteFilter(siteName, isChecked) {
-    const allSiteNames = Array.from(new Set(this.state.results.map(r => r.site_name || '기타 출처')));
-    
-    if (this.state.selectedSites.size === 0) {
-      allSiteNames.forEach(s => this.state.selectedSites.add(s));
+  setDownloadType(type) {
+    this.state.downloadType = type || 'analysis';
+    this.renderResultsBody();
+  },
+
+  setIncludeRawText(checked) {
+    this.state.includeRawText = !!checked;
+    this.renderResultsBody();
+  },
+
+  // 파일 다운로드 통합 실행 메서드
+  executeDownload(format) {
+    const isFiltered = this.state.downloadScope === 'filtered';
+    const targetItems = isFiltered ? this.getFilteredResults() : this.state.results;
+
+    if (!targetItems || targetItems.length === 0) {
+      alert('내보낼 데이터가 없습니다. 필터 조건을 확인해주세요.');
+      return;
     }
 
-    if (isChecked) {
-      this.state.selectedSites.add(siteName);
-      if (this.state.selectedSites.size >= allSiteNames.length) {
-        this.state.selectedSites.clear();
+    const isSummary = this.state.downloadType === 'summary';
+    const includeRaw = this.state.includeRawText;
+    const filterDesc = this.getFilterDescription();
+
+    if (format === 'excel') {
+      const xml = CsvUtils.generateExcelReport(
+        this.state.country,
+        this.state.product,
+        this.state.results,
+        targetItems,
+        filterDesc,
+        { isSummaryOnly: isSummary, includeRawText: includeRaw }
+      );
+      const scopeLabel = isFiltered ? `filtered_${targetItems.length}건` : `all_${targetItems.length}건`;
+      const filename = `VOC_Report_${this.state.country}_${this.state.product.replace(/\s+/g, '_')}_${scopeLabel}.xls`;
+      CsvUtils.downloadExcelBlob(xml, filename);
+    } else if (format === 'csv') {
+      if (isSummary) {
+        CsvUtils.downloadSummaryCsv(this.state.country, this.state.product, targetItems);
+      } else {
+        const scopeLabel = isFiltered ? `filtered_${targetItems.length}건` : `all_${targetItems.length}건`;
+        const filename = `voc_${this.state.country}_${this.state.product.replace(/\s+/g, '_')}_${scopeLabel}.csv`;
+        CsvUtils.downloadFilteredCsv(this.state.country, this.state.product, targetItems, filename, { includeRawText: includeRaw });
       }
-    } else {
-      this.state.selectedSites.delete(siteName);
     }
-    this.renderResultsBody();
   },
 
-  setSearchFilter(query) {
-    this.state.searchFilter = query || '';
-    this.renderResultsBody();
+  // 하위 호환
+  downloadExcelReport() { this.executeDownload('excel'); },
+  downloadFilteredCsv() { this.executeDownload('csv'); },
+  downloadRawCsv() {
+    this.state.downloadScope = 'all';
+    this.executeDownload('csv');
   },
+  downloadResultCsv() { this.executeDownload('excel'); },
 
   toggleSiteAccordion(siteName) {
     if (this.state.expandedSiteNames.has(siteName)) {
@@ -432,26 +450,47 @@ const ResultsView = {
     this.renderResultsBody();
   },
 
-  // 조합 필터링 적용된 결과 반환
+  // 조건 필터링 적용된 결과 반환
   getFilteredResults() {
     let items = this.state.results;
 
-    // 1. 출처 사이트 필터링
-    if (this.state.selectedSites.size > 0) {
-      items = items.filter(r => this.state.selectedSites.has(r.site_name || '기타 출처'));
+    // 1. 키워드 검색
+    if (this.state.searchFilter) {
+      const q = this.state.searchFilter.toLowerCase().trim();
+      items = items.filter(r => 
+        (r.kr_summary && r.kr_summary.toLowerCase().includes(q)) ||
+        (r.content && r.content.toLowerCase().includes(q)) ||
+        (r.site_name && r.site_name.toLowerCase().includes(q)) ||
+        (r.product && r.product.toLowerCase().includes(q)) ||
+        (r.topic_tags && r.topic_tags.some(t => t.toLowerCase().includes(q))) ||
+        (r.competitors && r.competitors.some(c => c.toLowerCase().includes(q)))
+      );
     }
 
-    // 2. 언급 대상 필터링
-    if (this.state.targetFilter === 'lg') {
-      items = items.filter(r => r.lg_mentioned);
-    } else if (this.state.targetFilter === 'competitor') {
-      items = items.filter(r => r.competitors && r.competitors.length > 0);
-      if (this.state.selectedCompetitor && this.state.selectedCompetitor !== 'all') {
-        items = items.filter(r => r.competitors && r.competitors.includes(this.state.selectedCompetitor));
-      }
+    // 2. 수집 출처
+    if (this.state.sourceFilter && this.state.sourceFilter !== 'all') {
+      items = items.filter(r => (r.site_name || '기타 출처') === this.state.sourceFilter);
     }
 
-    // 3. 감성 필터링 (조합)
+    // 3. 언급 브랜드 (복수 선택 가능)
+    if (!this.state.selectedBrands.has('all') && this.state.selectedBrands.size > 0) {
+      items = items.filter(r => {
+        // LG 선택된 경우
+        if (this.state.selectedBrands.has('LG') && r.lg_mentioned) return true;
+        // 타사 브랜드 선택된 경우
+        if (r.competitors && Array.isArray(r.competitors)) {
+          for (const brand of this.state.selectedBrands) {
+            if (brand === 'LG') continue;
+            if (r.competitors.some(c => c.toLowerCase() === brand.toLowerCase() || c.toLowerCase().includes(brand.toLowerCase()))) {
+              return true;
+            }
+          }
+        }
+        return false;
+      });
+    }
+
+    // 4. 감성 분류
     if (this.state.sentimentFilter === 'positive') {
       items = items.filter(r => r.ai_sentiment === 'POSITIVE');
     } else if (this.state.sentimentFilter === 'neutral') {
@@ -460,33 +499,7 @@ const ResultsView = {
       items = items.filter(r => r.ai_sentiment === 'NEGATIVE' || r.user_intent === 'COMPLAINT');
     }
 
-    // 4. 텍스트 검색 필터
-    if (this.state.searchFilter) {
-      const q = this.state.searchFilter.toLowerCase();
-      items = items.filter(r => 
-        (r.kr_summary && r.kr_summary.toLowerCase().includes(q)) ||
-        (r.content && r.content.toLowerCase().includes(q)) ||
-        (r.site_name && r.site_name.toLowerCase().includes(q)) ||
-        (r.topic_tags && r.topic_tags.some(t => t.toLowerCase().includes(q))) ||
-        (r.competitors && r.competitors.some(c => c.toLowerCase().includes(q)))
-      );
-    }
-
     return items;
-  },
-
-  // 다운로드 버튼의 건수 라벨 동적 갱신
-  updateDownloadButtons(filteredCount, totalCount) {
-    const btnFiltered = document.getElementById('btn-download-filtered-csv');
-    if (btnFiltered) {
-      btnFiltered.innerHTML = `📄 현재 결과 CSV · ${filteredCount}건`;
-      btnFiltered.title = `현재 검색·필터가 적용된 ${filteredCount}건 데이터만 CSV로 다운로드`;
-    }
-    const btnTotal = document.getElementById('btn-download-raw-csv');
-    if (btnTotal) {
-      btnTotal.innerHTML = `📑 전체 수집 데이터 CSV · ${totalCount}건`;
-      btnTotal.title = `검색·필터와 관계없이 전체 ${totalCount}건 데이터 다운로드`;
-    }
   },
 
   render() {
@@ -496,7 +509,6 @@ const ResultsView = {
     const selectedCount = this.state.selectedSources.length;
     const isProcessing = this.state.collectionStatus === AppConfig.CollectionStatus.PROCESSING;
     const hasResults = this.state.results.length > 0;
-    const filteredCount = this.getFilteredResults().length;
     const totalCount = this.state.results.length;
 
     let statusBadgeClass = 'badge-neutral';
@@ -591,23 +603,10 @@ const ResultsView = {
             <span class="badge ${statusBadgeClass}">${statusText}</span>
             <span class="status-text">${CsvUtils.escapeHtml(this.state.statusMessage)}</span>
           </div>
-
-          <!-- 다운로드 버튼 3종 (명칭 및 동적 건수 표기) -->
-          <div class="action-buttons-group">
-            <button type="button" class="btn btn-primary btn-sm btn-report-excel" id="btn-download-excel" ${!hasResults ? 'disabled' : ''} onclick="ResultsView.downloadExcelReport()" title="분석 요약표, 필터링 내역, 원문이 각각 시트로 구성된 Excel 파일 다운로드">
-              📊 분석 리포트 Excel
-            </button>
-            <button type="button" class="btn btn-outline btn-sm" id="btn-download-filtered-csv" ${!hasResults ? 'disabled' : ''} onclick="ResultsView.downloadFilteredCsv()" title="현재 검색·필터가 적용된 ${filteredCount}건 데이터만 CSV로 다운로드">
-              📄 현재 결과 CSV · ${filteredCount}건
-            </button>
-            <button type="button" class="btn btn-outline btn-sm" id="btn-download-raw-csv" ${!hasResults ? 'disabled' : ''} onclick="ResultsView.downloadRawCsv()" title="검색·필터와 관계없이 전체 수집된 ${totalCount}건 데이터 다운로드">
-              📑 전체 수집 데이터 CSV · ${totalCount}건
-            </button>
-          </div>
         </div>
       </div>
 
-      <!-- 메인 결과 본문 (필터 바 및 사이트별 아코디언) -->
+      <!-- 메인 결과 본문 (좌측: 조건필터 + 파일다운 / 우측: 데이터 리스트) -->
       <div class="results-body">
         ${subTabContentHtml}
       </div>
@@ -615,12 +614,25 @@ const ResultsView = {
   },
 
   renderResultsBody() {
+    const activeId = document.activeElement ? document.activeElement.id : null;
+    const selectionStart = activeId === 'voc-keyword-search' ? document.activeElement.selectionStart : null;
+    const selectionEnd = activeId === 'voc-keyword-search' ? document.activeElement.selectionEnd : null;
+
     const body = document.querySelector('.results-body');
     if (body) {
       body.innerHTML = this.renderVocContentView();
     }
-    const filtered = this.getFilteredResults();
-    this.updateDownloadButtons(filtered.length, this.state.results.length);
+
+    // 검색창 포커스 및 커서 위치 유지
+    if (activeId === 'voc-keyword-search') {
+      const input = document.getElementById('voc-keyword-search');
+      if (input) {
+        input.focus();
+        if (selectionStart !== null && selectionEnd !== null) {
+          input.setSelectionRange(selectionStart, selectionEnd);
+        }
+      }
+    }
   },
 
   renderVocContentView() {
@@ -628,53 +640,32 @@ const ResultsView = {
     const filteredItems = this.getFilteredResults();
 
     const totalCount = allItems.length;
-    const lgCount = allItems.filter(r => r.lg_mentioned).length;
-    const compTotalCount = allItems.filter(r => r.competitors && r.competitors.length > 0).length;
+    const filteredCount = filteredItems.length;
 
-    // 경쟁사별 카운트 추출
-    const competitorCounts = {};
-    allItems.forEach(r => {
-      if (r.competitors && Array.isArray(r.competitors)) {
-        r.competitors.forEach(c => {
-          if (c && c.trim()) {
-            const brand = c.trim();
-            competitorCounts[brand] = (competitorCounts[brand] || 0) + 1;
-          }
-        });
-      }
-    });
-    const competitorNames = Object.keys(competitorCounts).sort((a,b) => competitorCounts[b] - competitorCounts[a]);
-
-    // 감성 집계 모집단: 현재 선택된 '언급 대상' 기준으로 실시간 갱신!
-    let sentimentBaseItems = allItems;
-    let criterionDesc = '수집된 전체 리뷰 기준 (자사 및 타사 평가 통합)';
-
-    if (this.state.targetFilter === 'lg') {
-      sentimentBaseItems = allItems.filter(r => r.lg_mentioned);
-      criterionDesc = 'LG 직접 언급 리뷰 기준 (자사 품질/기능 평가)';
-    } else if (this.state.targetFilter === 'competitor') {
-      sentimentBaseItems = allItems.filter(r => r.competitors && r.competitors.length > 0);
-      if (this.state.selectedCompetitor && this.state.selectedCompetitor !== 'all') {
-        sentimentBaseItems = sentimentBaseItems.filter(r => r.competitors.includes(this.state.selectedCompetitor));
-        criterionDesc = `${this.state.selectedCompetitor} 언급 리뷰 기준 (경쟁사 평가)`;
-      } else {
-        criterionDesc = '경쟁사 언급 리뷰 기준 (타사 불만 및 비교 평가)';
-      }
-    }
-
-    const sentTotalCount = sentimentBaseItems.length;
-    const sentPosCount = sentimentBaseItems.filter(r => r.ai_sentiment === 'POSITIVE').length;
-    const sentNeuCount = sentimentBaseItems.filter(r => r.ai_sentiment === 'NEUTRAL').length;
-    const sentNegCount = sentimentBaseItems.filter(r => r.ai_sentiment === 'NEGATIVE' || r.user_intent === 'COMPLAINT').length;
-
-    // 사이트별 카운트 추출
+    // 출처 사이트 목록 및 카운트
     const siteCounts = {};
     allItems.forEach(r => {
       const s = r.site_name || '기타 출처';
       siteCounts[s] = (siteCounts[s] || 0) + 1;
     });
     const allSiteNames = Object.keys(siteCounts);
-    const isAllSitesActive = this.state.selectedSites.size === 0 || this.state.selectedSites.size === allSiteNames.length;
+
+    // 언급 브랜드 목록: 이미지 목업 기준 [LG, Samsung, Bosch, Electrolux, Miele] 우선 배치
+    const baseBrands = ['LG', 'Samsung', 'Bosch', 'Electrolux', 'Miele'];
+    const brandSet = new Set(baseBrands);
+    allItems.forEach(r => {
+      if (r.competitors && Array.isArray(r.competitors)) {
+        r.competitors.forEach(c => {
+          if (c && c.trim()) brandSet.add(c.trim());
+        });
+      }
+    });
+    const availableBrands = Array.from(brandSet);
+
+    // 감성 집계 (현재 필터링된 결과 기준)
+    const sentPosCount = filteredItems.filter(r => r.ai_sentiment === 'POSITIVE').length;
+    const sentNeuCount = filteredItems.filter(r => r.ai_sentiment === 'NEUTRAL').length;
+    const sentNegCount = filteredItems.filter(r => r.ai_sentiment === 'NEGATIVE' || r.user_intent === 'COMPLAINT').length;
 
     // 사이트별 그룹화 (필터링된 결과 기준)
     const siteGroups = {};
@@ -689,109 +680,219 @@ const ResultsView = {
       }
       siteGroups[sName].items.push(item);
     });
-
     const siteNames = Object.keys(siteGroups);
 
     return `
-      <!-- 1. 2줄 분리형 스마트 필터 툴바 -->
-      <div class="voc-filter-toolbar">
-        
-        <!-- 1행: 언급 대상 (전체 / LG 직접 언급 / 경쟁사 언급) + 검색창 -->
-        <div class="filter-row filter-target-row">
-          <div class="filter-row-left">
-            <span class="filter-row-title">언급 대상:</span>
-            <div class="filter-buttons-group">
-              <button type="button" class="btn-filter-pill ${this.state.targetFilter === 'all' ? 'active' : ''}" onclick="ResultsView.setTargetFilter('all')">
-                전체 <span class="pill-badge">${totalCount}</span>
-              </button>
-              <button type="button" class="btn-filter-pill highlight-lg ${this.state.targetFilter === 'lg' ? 'active' : ''}" onclick="ResultsView.setTargetFilter('lg')">
-                🔥 LG 직접 언급 <span class="pill-badge">${lgCount}</span>
-              </button>
-              <button type="button" class="btn-filter-pill filter-competitor ${this.state.targetFilter === 'competitor' ? 'active' : ''}" onclick="ResultsView.setTargetFilter('competitor')">
-                ⚔️ 경쟁사 언급 <span class="pill-badge">${compTotalCount}</span>
+      <div class="voc-dashboard-layout">
+        <!-- ===================================================================
+             좌측 사이드바: 1. 조건 필터 / 2. VOC 데이터 내보내기
+             =================================================================== -->
+        <aside class="voc-sidebar-col">
+          
+          <!-- 카드 1: 조건 필터 -->
+          <div class="voc-panel-card voc-filter-panel-card">
+            <div class="panel-header-row">
+              <h3 class="panel-card-title">조건 필터</h3>
+              <button type="button" class="btn-filter-reset" onclick="ResultsView.resetFilters()" title="필터 초기화">
+                초기화 ↺
               </button>
             </div>
-          </div>
 
-          <div class="filter-search-box">
-            <input type="text" class="input-text-sm" placeholder="요약, 키워드, 브랜드 검색..." value="${CsvUtils.escapeHtml(this.state.searchFilter)}" oninput="ResultsView.setSearchFilter(this.value)">
-          </div>
-        </div>
+            <!-- 1. 키워드 검색 -->
+            <div class="filter-field-group">
+              <label class="filter-field-label" for="voc-keyword-search">1. 키워드 검색</label>
+              <div class="filter-input-wrap">
+                <input 
+                  type="text" 
+                  id="voc-keyword-search" 
+                  class="filter-search-input" 
+                  placeholder="제품명, 리뷰 내용, 주요 키워드 검색" 
+                  value="${CsvUtils.escapeHtml(this.state.searchFilter)}"
+                  oninput="ResultsView.setSearchFilter(this.value)"
+                />
+                ${this.state.searchFilter ? `<button type="button" class="btn-clear-input" onclick="ResultsView.clearSearchFilter()">✕</button>` : ''}
+              </div>
+            </div>
 
-        <!-- 1-1행: 경쟁사 언급 선택 시 동적 표시되는 경쟁사 브랜드 서브 칩 -->
-        ${this.state.targetFilter === 'competitor' ? `
-          <div class="competitor-subfilter-bar">
-            <span class="subfilter-label">⚔️ 언급된 경쟁사 선택:</span>
-            <div class="competitor-chips-group">
-              <button type="button" class="btn-comp-chip ${this.state.selectedCompetitor === 'all' ? 'active' : ''}" onclick="ResultsView.setCompetitorFilter('all')">
-                전체 경쟁사 (${compTotalCount})
-              </button>
-              ${competitorNames.map(cName => `
-                <button type="button" class="btn-comp-chip ${this.state.selectedCompetitor === cName ? 'active' : ''}" onclick="ResultsView.setCompetitorFilter('${CsvUtils.escapeHtml(cName)}')">
-                  ${CsvUtils.escapeHtml(cName)} (${competitorCounts[cName]})
+            <!-- 2. 수집 출처 -->
+            <div class="filter-field-group">
+              <label class="filter-field-label" for="voc-source-select">2. 수집 출처</label>
+              <div class="filter-select-wrap">
+                <select id="voc-source-select" class="filter-select-control" onchange="ResultsView.setSourceFilter(this.value)">
+                  <option value="all" ${this.state.sourceFilter === 'all' ? 'selected' : ''}>전체 출처</option>
+                  ${allSiteNames.map(sName => `
+                    <option value="${CsvUtils.escapeHtml(sName)}" ${this.state.sourceFilter === sName ? 'selected' : ''}>
+                      ${CsvUtils.escapeHtml(sName)} (${siteCounts[sName] || 0}건)
+                    </option>
+                  `).join('')}
+                </select>
+                <span class="select-chevron-icon">⌄</span>
+              </div>
+            </div>
+
+            <!-- 3. 언급 브랜드 -->
+            <div class="filter-field-group">
+              <label class="filter-field-label">3. 언급 브랜드</label>
+              <div class="brand-chips-wrap">
+                <button 
+                  type="button" 
+                  class="brand-chip ${this.state.selectedBrands.has('all') ? 'active' : ''}" 
+                  onclick="ResultsView.setBrandFilter('all')">
+                  전체
                 </button>
-              `).join('')}
+                ${availableBrands.map(bName => `
+                  <button 
+                    type="button" 
+                    class="brand-chip ${this.state.selectedBrands.has(bName) ? 'active' : ''}" 
+                    onclick="ResultsView.toggleBrandFilter('${CsvUtils.escapeHtml(bName)}')">
+                    ${CsvUtils.escapeHtml(bName)}
+                  </button>
+                `).join('')}
+              </div>
+              <div class="filter-sub-hint">브랜드 복수 선택 가능 · 자사와 경쟁사를 함께 선택할 수 있음</div>
             </div>
-          </div>
-        ` : ''}
 
-        <!-- 2행: 감성 필터 (현재 선택된 언급 대상 기준으로 갱신 & 집계 기준 안내) -->
-        <div class="filter-row filter-sentiment-row">
-          <div class="filter-row-left">
-            <span class="filter-row-title">감성 구분:</span>
-            <div class="filter-buttons-group">
-              <button type="button" class="btn-filter-pill ${this.state.sentimentFilter === 'all' ? 'active' : ''}" onclick="ResultsView.setSentimentFilter('all')">
-                전체 <span class="pill-badge">${sentTotalCount}</span>
-              </button>
-              <button type="button" class="btn-filter-pill filter-positive ${this.state.sentimentFilter === 'positive' ? 'active' : ''}" onclick="ResultsView.setSentimentFilter('positive')">
-                🟢 긍정 <span class="pill-badge">${sentPosCount}</span>
-              </button>
-              <button type="button" class="btn-filter-pill filter-neutral ${this.state.sentimentFilter === 'neutral' ? 'active' : ''}" onclick="ResultsView.setSentimentFilter('neutral')">
-                🟡 중립 <span class="pill-badge">${sentNeuCount}</span>
-              </button>
-              <button type="button" class="btn-filter-pill filter-negative ${this.state.sentimentFilter === 'negative' ? 'active' : ''}" onclick="ResultsView.setSentimentFilter('negative')">
-                🔴 부정 <span class="pill-badge">${sentNegCount}</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- 집계 기준 짧게 표시 -->
-          <div class="sentiment-criterion-tag">
-            ℹ️ 감성 집계 기준: <strong>${CsvUtils.escapeHtml(criterionDesc)}</strong>
-          </div>
-        </div>
-
-        <!-- 3행: 출처 사이트별 체크 필터 (수집된 전체 또는 개별 사이트 체크) -->
-        <div class="site-filter-bar">
-          <div class="site-filter-left">
-            <span class="site-filter-label">출처 사이트:</span>
-            <button type="button" class="btn-site-all-toggle ${isAllSitesActive ? 'active' : ''}" onclick="ResultsView.toggleAllSites()">
-              전체 (${allSiteNames.length}개 사이트)
-            </button>
-          </div>
-          <div class="site-filter-checkboxes">
-            ${allSiteNames.map(sName => {
-              const isChecked = this.state.selectedSites.size === 0 || this.state.selectedSites.has(sName);
-              const count = siteCounts[sName] || 0;
-              return `
-                <label class="site-check-pill ${isChecked ? 'is-checked' : ''}">
-                  <input type="checkbox" class="site-native-check" ${isChecked ? 'checked' : ''} onchange="ResultsView.toggleSiteFilter('${CsvUtils.escapeHtml(sName)}', this.checked)">
-                  <span class="pill-sitename">${CsvUtils.escapeHtml(sName)}</span>
-                  <span class="pill-sitecount">${count}</span>
+            <!-- 4. 감성 분류 -->
+            <div class="filter-field-group">
+              <label class="filter-field-label">4. 감성 분류</label>
+              <div class="sentiment-radio-row">
+                <label class="sentiment-radio-item ${this.state.sentimentFilter === 'all' ? 'is-active' : ''}">
+                  <input type="radio" name="voc-sentiment-radio" value="all" ${this.state.sentimentFilter === 'all' ? 'checked' : ''} onchange="ResultsView.setSentimentFilter('all')">
+                  <span class="custom-radio-dot"></span>
+                  <span class="radio-label-text">전체</span>
                 </label>
-              `;
-            }).join('')}
+                <label class="sentiment-radio-item ${this.state.sentimentFilter === 'positive' ? 'is-active' : ''}">
+                  <input type="radio" name="voc-sentiment-radio" value="positive" ${this.state.sentimentFilter === 'positive' ? 'checked' : ''} onchange="ResultsView.setSentimentFilter('positive')">
+                  <span class="custom-radio-dot"></span>
+                  <span class="radio-label-text">긍정</span>
+                </label>
+                <label class="sentiment-radio-item ${this.state.sentimentFilter === 'neutral' ? 'is-active' : ''}">
+                  <input type="radio" name="voc-sentiment-radio" value="neutral" ${this.state.sentimentFilter === 'neutral' ? 'checked' : ''} onchange="ResultsView.setSentimentFilter('neutral')">
+                  <span class="custom-radio-dot"></span>
+                  <span class="radio-label-text">중립</span>
+                </label>
+                <label class="sentiment-radio-item ${this.state.sentimentFilter === 'negative' ? 'is-active' : ''}">
+                  <input type="radio" name="voc-sentiment-radio" value="negative" ${this.state.sentimentFilter === 'negative' ? 'checked' : ''} onchange="ResultsView.setSentimentFilter('negative')">
+                  <span class="custom-radio-dot"></span>
+                  <span class="radio-label-text">부정</span>
+                </label>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <!-- 2. 사이트별 그룹 아코디언 목록 -->
-      <div class="site-accordion-container">
-        ${siteNames.length === 0 ? `
-          <div class="empty-state-card text-center" style="padding: 40px 20px; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0;">
-            <p style="color: #64748b; font-size: 14px;">선택한 조합 필터 조건에 해당하는 수집 VOC가 없습니다.</p>
+          <!-- 카드 2: VOC 데이터 내보내기 -->
+          <div class="voc-panel-card voc-export-panel-card">
+            <div class="panel-header-row">
+              <h3 class="panel-card-title export-card-title">
+                <span class="title-download-icon">📥</span> VOC 데이터 내보내기
+              </h3>
+            </div>
+
+            <!-- 1. 다운로드 범위 -->
+            <div class="export-field-group">
+              <div class="export-field-label">1. 다운로드 범위</div>
+              <div class="export-options-list">
+                <label class="export-option-row ${this.state.downloadScope === 'filtered' ? 'is-selected' : ''}">
+                  <input type="radio" name="voc-export-scope" value="filtered" ${this.state.downloadScope === 'filtered' ? 'checked' : ''} onchange="ResultsView.setDownloadScope('filtered')">
+                  <span class="custom-radio-dot"></span>
+                  <div class="option-content">
+                    <span class="option-title">현재 필터 적용 결과</span>
+                    <span class="option-desc">예시: 현재 조건 ${filteredCount}건</span>
+                  </div>
+                </label>
+
+                <label class="export-option-row ${this.state.downloadScope === 'all' ? 'is-selected' : ''}">
+                  <input type="radio" name="voc-export-scope" value="all" ${this.state.downloadScope === 'all' ? 'checked' : ''} onchange="ResultsView.setDownloadScope('all')">
+                  <span class="custom-radio-dot"></span>
+                  <div class="option-content">
+                    <span class="option-title">전체 수집 데이터</span>
+                    <span class="option-desc">필터 조건과 관계없이 전체 ${totalCount}건</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div class="panel-divider-line"></div>
+
+            <!-- 2. 다운로드 데이터 유형 -->
+            <div class="export-field-group">
+              <div class="export-field-label">2. 다운로드 데이터 유형</div>
+              <div class="export-options-list">
+                <label class="export-option-row ${this.state.downloadType === 'analysis' ? 'is-selected' : ''}">
+                  <input type="radio" name="voc-export-type" value="analysis" ${this.state.downloadType === 'analysis' ? 'checked' : ''} onchange="ResultsView.setDownloadType('analysis')">
+                  <span class="custom-radio-dot"></span>
+                  <div class="option-content">
+                    <span class="option-title">VOC 분석 데이터</span>
+                    <span class="option-desc">브랜드, 감성, 토픽, AI 분석 요약 등</span>
+                  </div>
+                </label>
+
+                <label class="export-option-row ${this.state.downloadType === 'summary' ? 'is-selected' : ''}">
+                  <input type="radio" name="voc-export-type" value="summary" ${this.state.downloadType === 'summary' ? 'checked' : ''} onchange="ResultsView.setDownloadType('summary')">
+                  <span class="custom-radio-dot"></span>
+                  <div class="option-content">
+                    <span class="option-title">집계 결과</span>
+                    <span class="option-desc">브랜드별 VOC 건수와 감성 통계</span>
+                  </div>
+                </label>
+
+                <!-- 원문 텍스트도 함께 포함 체크박스 -->
+                <label class="export-checkbox-row ${this.state.includeRawText ? 'is-checked' : ''}">
+                  <input type="checkbox" name="voc-include-raw" ${this.state.includeRawText ? 'checked' : ''} onchange="ResultsView.setIncludeRawText(this.checked)">
+                  <span class="custom-check-box"></span>
+                  <span class="checkbox-label-text">원문 텍스트도 함께 포함</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 내보내기 실행 액션 버튼 2종 -->
+            <div class="export-actions-row">
+              <button type="button" class="btn btn-primary btn-block btn-export-excel" onclick="ResultsView.executeDownload('excel')" title="선택한 옵션으로 분석 Excel 리포트 다운로드">
+                📊 Excel 리포트 내보내기
+              </button>
+              <button type="button" class="btn btn-outline btn-block btn-export-csv" onclick="ResultsView.executeDownload('csv')" title="선택한 옵션으로 CSV 데이터 다운로드">
+                📄 CSV 데이터 내보내기
+              </button>
+            </div>
           </div>
-        ` : siteNames.map(sName => this.renderSiteGroup(siteGroups[sName])).join('')}
+
+        </aside>
+
+        <!-- ===================================================================
+             우측 메인 영역: 수집 데이터 목록 (상단 메타 바 + 아코디언 카드)
+             =================================================================== -->
+        <main class="voc-main-results">
+          
+          <!-- 상단 결과 메타 바 -->
+          <div class="results-meta-header">
+            <div class="meta-header-left">
+              <span class="meta-country-badge">${this.state.country}</span>
+              <strong class="meta-product-name">${CsvUtils.escapeHtml(this.state.product)}</strong>
+              <span class="meta-badge-count">전체 수집: <strong>${totalCount}건</strong></span>
+              <span class="meta-badge-filtered">필터 결과: <strong>${filteredCount}건</strong></span>
+            </div>
+
+            <div class="meta-header-right">
+              <div class="sentiment-realtime-stats">
+                <span class="sentiment-stat-pill pos" title="긍정">🟢 긍정 ${sentPosCount}</span>
+                <span class="sentiment-stat-pill neu" title="중립">🟡 중립 ${sentNeuCount}</span>
+                <span class="sentiment-stat-pill neg" title="부정">🔴 부정 ${sentNegCount}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 사이트별 그룹 아코디언 목록 -->
+          <div class="site-accordion-container">
+            ${siteNames.length === 0 ? `
+              <div class="empty-state-card text-center" style="padding: 48px 20px; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0;">
+                <p style="color: #64748b; font-size: 14px; margin-bottom: 12px;">선택한 조건 필터에 해당하는 수집 VOC가 없습니다.</p>
+                <button type="button" class="btn btn-outline btn-sm" onclick="ResultsView.resetFilters()">
+                  필터 초기화
+                </button>
+              </div>
+            ` : siteNames.map(sName => this.renderSiteGroup(siteGroups[sName])).join('')}
+          </div>
+        </main>
       </div>
     `;
   },

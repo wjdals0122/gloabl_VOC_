@@ -196,7 +196,8 @@ const CsvUtils = {
       .replace(/'/g, '&apos;');
   },
 
-  generateFilteredCsv(country, product, filteredItems) {
+  generateFilteredCsv(country, product, filteredItems, options = {}) {
+    const includeRaw = options.includeRawText !== false;
     const headers = [
       'No',
       '수집출처',
@@ -206,11 +207,12 @@ const CsvUtils = {
       'LG언급여부',
       '언급경쟁사',
       '핵심토픽태그',
-      '한국어AI핵심요약',
-      '영문원문본문',
-      '원문링크',
-      '수집일시'
+      '한국어AI핵심요약'
     ];
+    if (includeRaw) {
+      headers.push('영문원문본문');
+    }
+    headers.push('원문링크', '수집일시');
 
     const escape = (val) => {
       if (val === null || val === undefined) return '""';
@@ -232,7 +234,7 @@ const CsvUtils = {
       const comps = item.competitors && item.competitors.length > 0 ? item.competitors.join('; ') : '';
       const tags = item.topic_tags && item.topic_tags.length > 0 ? item.topic_tags.join('; ') : '';
 
-      return [
+      const cols = [
         idx + 1,
         escape(item.site_name),
         escape(item.category),
@@ -241,18 +243,80 @@ const CsvUtils = {
         escape(item.lg_mentioned ? 'O' : 'X'),
         escape(comps),
         escape(tags),
-        escape(item.kr_summary),
-        escape(item.content),
-        escape(item.source_url),
-        escape(item.created_at)
-      ].join(',');
+        escape(item.kr_summary)
+      ];
+
+      if (includeRaw) {
+        cols.push(escape(item.content));
+      }
+
+      cols.push(escape(item.source_url), escape(item.created_at));
+      return cols.join(',');
     });
 
     return headers.join(',') + '\n' + rows.join('\n');
   },
 
-  downloadFilteredCsv(country, product, filteredItems, filename) {
-    const csv = this.generateFilteredCsv(country, product, filteredItems);
+  generateSummaryCsv(country, product, items) {
+    const totalCount = items.length;
+    const posCount = items.filter(r => r.ai_sentiment === 'POSITIVE').length;
+    const neuCount = items.filter(r => r.ai_sentiment === 'NEUTRAL').length;
+    const negCount = items.filter(r => r.ai_sentiment === 'NEGATIVE' || r.user_intent === 'COMPLAINT').length;
+    const lgCount = items.filter(r => r.lg_mentioned).length;
+
+    // 브랜드별 통계
+    const brandStats = {
+      'LG전자': { total: lgCount, pos: 0, neu: 0, neg: 0 }
+    };
+    items.forEach(r => {
+      if (r.lg_mentioned) {
+        if (r.ai_sentiment === 'POSITIVE') brandStats['LG전자'].pos++;
+        else if (r.ai_sentiment === 'NEGATIVE' || r.user_intent === 'COMPLAINT') brandStats['LG전자'].neg++;
+        else brandStats['LG전자'].neu++;
+      }
+      if (r.competitors && Array.isArray(r.competitors)) {
+        r.competitors.forEach(c => {
+          if (!c) return;
+          const b = c.trim();
+          if (!brandStats[b]) brandStats[b] = { total: 0, pos: 0, neu: 0, neg: 0 };
+          brandStats[b].total++;
+          if (r.ai_sentiment === 'POSITIVE') brandStats[b].pos++;
+          else if (r.ai_sentiment === 'NEGATIVE' || r.user_intent === 'COMPLAINT') brandStats[b].neg++;
+          else brandStats[b].neu++;
+        });
+      }
+    });
+
+    const escape = (val) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
+    const lines = [
+      '# LG 글로벌 VOC 인텔리전스 집계 요약',
+      `국가,${escape(country)},제품,${escape(product)},총건수,${totalCount}`,
+      `긍정건수,${posCount} (${totalCount > 0 ? ((posCount/totalCount)*100).toFixed(1) : 0}%),중립건수,${neuCount} (${totalCount > 0 ? ((neuCount/totalCount)*100).toFixed(1) : 0}%),부정건수,${negCount} (${totalCount > 0 ? ((negCount/totalCount)*100).toFixed(1) : 0}%)`,
+      '',
+      '구분,브랜드명,언급건수,비중(%),긍정,중립,부정'
+    ];
+
+    Object.keys(brandStats).forEach((bName, idx) => {
+      const s = brandStats[bName];
+      const rate = totalCount > 0 ? ((s.total / totalCount) * 100).toFixed(1) : '0.0';
+      lines.push(`${idx + 1},${escape(bName)},${s.total},${rate}%,${s.pos},${s.neu},${s.neg}`);
+    });
+
+    return lines.join('\n');
+  },
+
+  downloadSummaryCsv(country, product, items, filename) {
+    const csv = this.generateSummaryCsv(country, product, items);
+    this.downloadCsvText(csv, filename || `voc_summary_${country}_${product.replace(/\s+/g, '_')}_${items.length}건.csv`);
+  },
+
+  downloadFilteredCsv(country, product, filteredItems, filename, options = {}) {
+    const csv = this.generateFilteredCsv(country, product, filteredItems, options);
     this.downloadCsvText(csv, filename || `filtered_voc_${country}_${product.replace(/\s+/g, '_')}.csv`);
   },
 
@@ -262,7 +326,7 @@ const CsvUtils = {
     this.downloadBlob(blob, filename || 'voc_report.xls');
   },
 
-  generateExcelReport(country, product, allItems, filteredItems, filterDesc) {
+  generateExcelReport(country, product, allItems, filteredItems, filterDesc, options = {}) {
     const escapeXml = (str) => this.escapeXml(str);
 
     const totalCount = allItems.length;

@@ -647,13 +647,13 @@ const ResultsView = {
         </div>
 
         <!-- ==================================================================
-             2. 상단 4대 핵심 메트릭 KPI 카드 그리드 (최다 사이트 대신 순 감성 지표 적용)
+             2. 상단 4대 핵심 메트릭 KPI 카드 그리드
              ================================================================== -->
         <div class="kpi-metrics-grid kpi-grid-4cols">
-          <!-- 카드 1: 총 언급량 -->
+          <!-- 카드 1: 기간 총 언급량 -->
           <div class="kpi-card">
             <div class="kpi-header">
-              <span class="kpi-title">총 언급량</span>
+              <span class="kpi-title">기간 총 언급량</span>
               <span class="kpi-tooltip" title="선택된 사이트 및 유효 키워드 기준 총 VOC 수">?</span>
             </div>
             <div class="kpi-body">
@@ -682,19 +682,23 @@ const ResultsView = {
             </div>
           </div>
 
-          <!-- 카드 3: 순 감성 지수 (Net Sentiment Score: 글로벌 표준 브랜드 호감도) -->
-          <div class="kpi-card highlight-kpi-net">
+          <!-- 카드 3: 최다 언급 사이트 (원복: 수집한 사이트명으로 표시) -->
+          <div class="kpi-card highlight-kpi">
             <div class="kpi-header">
-              <span class="kpi-title">순 감성 지수 (NSS)</span>
-              <span class="kpi-tooltip" title="긍정 비율에서 부정 비율을 뺀 순 호감도 지표 (글로벌 표준 소셜 리스닝 지수)">?</span>
+              <span class="kpi-title">최다 언급 사이트</span>
+              <span class="kpi-tooltip" title="가장 많은 반응이 수집된 개별 사이트명">?</span>
             </div>
             <div class="kpi-body">
-              <div class="kpi-main-val val-net-sentiment">${kpi.netSentiment}</div>
-              <div class="kpi-sub-text">
-                긍정 우세 (격차 ${kpi.netSentiment}%p, 50점 이상 우수)
+              <div class="kpi-main-val val-site-name">
+                ${CsvUtils.escapeHtml(kpi.topSite ? kpi.topSite.siteName : '')}
+                <span class="badge-ch-type">${CsvUtils.escapeHtml(kpi.topSite ? kpi.topSite.channelType : '')}</span>
               </div>
-              <div class="kpi-gauge-bar">
-                <div class="gauge-fill fill-net" style="width: ${Math.min(100, Math.max(15, (kpi.netSentimentValue + 100) / 2))}%;"></div>
+              <div class="kpi-sub-text">
+                <strong>${Number(kpi.topSite ? kpi.topSite.count : 0).toLocaleString()}건</strong> (점유율 <strong>${kpi.topSite ? kpi.topSite.sharePercent : 0}%</strong>)
+              </div>
+              <div class="kpi-share-bar">
+                <div class="share-comm" style="width: ${channelComp.community.sharePercent}%;" title="커뮤니티 ${channelComp.community.sharePercent}%"></div>
+                <div class="share-rev" style="width: ${channelComp.reviews.sharePercent}%;" title="제품리뷰 ${channelComp.reviews.sharePercent}%"></div>
               </div>
             </div>
           </div>
@@ -766,7 +770,7 @@ const ResultsView = {
                   <h3 class="box-title">언급량 추이</h3>
                   <span class="badge-ai-indicator">✨ 사이트별 추이</span>
                   <span class="chart-meta-stat">
-                    총 언급량 <strong>${Number(kpi.totalCount).toLocaleString()}건</strong> / 활성 사이트 <strong>${activeSiteCount}개</strong> / 일평균 <strong>${kpi.dailyAvg}건</strong>
+                    기간 총 언급량 <strong>${Number(kpi.totalCount).toLocaleString()}건</strong> / 활성 사이트 <strong>${activeSiteCount}개</strong> / 일평균 <strong>${kpi.dailyAvg}건</strong>
                   </span>
                 </div>
                 <div class="chart-actions">

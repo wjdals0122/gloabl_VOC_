@@ -402,7 +402,8 @@ const MockData = {
       kpi: {
         totalCount: activeTotal,
         dailyAvg,
-        netSentiment, // 순 감성 지수 (최다 언급 사이트 대체)
+        topSite, // 최다 언급 사이트
+        netSentiment,
         netSentimentValue: Number(netSentimentValue),
         posRate,
         neuRate,

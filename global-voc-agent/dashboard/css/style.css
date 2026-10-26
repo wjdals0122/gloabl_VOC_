@@ -709,6 +709,50 @@ body {
   display: block;
 }
 
+/* VOC 탐색 탭 화면 중앙 배치 */
+#tab-sources.tab-view-section.active {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: calc(100vh - 220px);
+  padding: 20px 0 60px;
+}
+
+#tab-sources .search-hero-header {
+  text-align: center;
+  margin-bottom: 28px;
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#tab-sources .search-hero-title {
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+}
+
+#tab-sources .search-hero-subtitle {
+  text-align: center;
+  margin: 12px auto 0;
+}
+
+#tab-sources .search-control-card {
+  width: 100%;
+  max-width: 1060px;
+  margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+  #tab-sources.tab-view-section.active {
+    min-height: auto;
+    padding: 20px 0 40px;
+  }
+}
+
 /* ==========================================================================
    3. 사용자 행동 안내 문구 및 타이핑 모션 헤더
    ========================================================================== */
@@ -2908,16 +2952,22 @@ input:checked + .slider:before {
   font-size: 11px;
 }
 
-/* 다음 실행 예정 (Soft blue pill, 2 lines) */
+/* 다음 실행 예약 (Soft blue pill, 2 lines) */
+.th-next-run,
+.td-next-run {
+  text-align: center !important;
+  width: 130px;
+}
+
 .next-run-pill {
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 6px 14px;
+  padding: 5px 12px;
   border-radius: 6px;
   text-align: center;
-  width: fit-content;
+  margin: 0 auto;
   white-space: nowrap;
 }
 

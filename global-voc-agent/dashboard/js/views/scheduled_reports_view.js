@@ -259,13 +259,13 @@ const ScheduledReportsView = {
         <table class="schedule-data-table">
           <thead>
             <tr>
-              <th class="th-status" style="width: 90px; padding-left: 24px;">가동 상태</th>
-              <th class="th-target" style="width: 220px;">수집 대상</th>
-              <th class="th-schedule" style="width: 170px;">발송 주기</th>
-              <th class="th-email" style="min-width: 210px;">수신 이메일</th>
-              <th class="th-next-run" style="width: 150px; text-align: center;">다음 실행 예정</th>
-              <th class="th-last-run" style="width: 180px;">최근 발송 이력</th>
-              <th class="th-actions" style="width: 170px; text-align: center;">관리</th>
+              <th class="th-status" style="width: 75px; padding-left: 18px; text-align: center;">가동 상태</th>
+              <th class="th-target" style="min-width: 190px;">수집 대상</th>
+              <th class="th-schedule" style="width: 150px;">발송 주기</th>
+              <th class="th-email" style="min-width: 200px;">수신 이메일</th>
+              <th class="th-next-run" style="width: 130px; text-align: center;">다음 실행 예약</th>
+              <th class="th-last-run" style="width: 160px;">최근 발송 이력</th>
+              <th class="th-actions" style="width: 150px; text-align: center;">관리</th>
             </tr>
           </thead>
           <tbody>
@@ -353,11 +353,11 @@ const ScheduledReportsView = {
           </div>
         </td>
 
-        <!-- 5. 다음 실행 예정 (피그마: 부드러운 블루 컨테이너 2줄) -->
-        <td class="td-next-run">
+        <!-- 5. 다음 실행 예약 (피그마: 부드러운 블루 컨테이너 2줄) -->
+        <td class="td-next-run" style="text-align: center;">
           <div class="next-run-pill ${item.isActive ? 'active-run' : 'paused-run'}">
             <span class="next-date">${item.isActive ? CsvUtils.escapeHtml(nextDate) : '일시정지됨'}</span>
-            <span class="next-time">${item.isActive ? CsvUtils.escapeHtml(nextTime) : '-'}</span>
+            <span class="next-time">${item.isActive ? CsvUtils.escapeHtml(nextTime) : ''}</span>
           </div>
         </td>
 

@@ -96,15 +96,22 @@ const SourceView = {
     const period = this.state.period || '1m';
     const channel = this.state.channel || 'all';
 
-    // [수집 결과] 탭으로 전환하여 분석 대시보드 실행
-    App.navigateToTab('tab-results', {
+    const targetPayload = {
       country: country,
       keyword: keyword,
       product: keyword,
       period: period,
       channel: channel,
       autoStart: true
-    });
+    };
+
+    if (typeof VocProgressModal !== 'undefined') {
+      VocProgressModal.start(targetPayload, () => {
+        App.navigateToTab('tab-results', targetPayload);
+      });
+    } else {
+      App.navigateToTab('tab-results', targetPayload);
+    }
   },
 
   getChannelName(channel) {

@@ -175,6 +175,44 @@
   </main>
 
   <!-- ==========================================================================
+       실시간 VOC 수집 및 AI 분석 프로그레스 모달 (Emil Kowalski Design Eng)
+       ========================================================================== -->
+  <div id="voc-progress-overlay" class="voc-progress-backdrop" style="display: none;" aria-hidden="true">
+    <div class="voc-progress-card">
+      <div class="progress-card-header">
+        <div class="progress-pulse-wrap">
+          <span class="progress-live-dot"></span>
+          <span class="progress-live-text">실시간 데이터 수집 및 AI 분석 진행 중</span>
+        </div>
+        <div class="progress-target-badge" id="progress-target-meta">미국(US) | "LG 워시콤보" | 통합 채널</div>
+      </div>
+
+      <div class="progress-metric-row">
+        <div class="progress-pct-display" id="progress-pct-number">0%</div>
+        <div class="progress-stat-pill" id="progress-items-count">수집 데이터: <strong>0건</strong></div>
+      </div>
+
+      <!-- 바 형태 프로그레스 바 -->
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progress-bar-fill" style="width: 0%;">
+          <div class="progress-shimmer"></div>
+        </div>
+      </div>
+
+      <!-- 지금 뭐가 어느 정도 수집되었는지 실시간 정보 -->
+      <div class="progress-status-box">
+        <div class="progress-status-lead">
+          <span class="status-icon" id="progress-status-icon">📡</span>
+          <span class="status-text" id="progress-status-text">글로벌 채널 연결 및 수집 파이프라인 초기화 중...</span>
+        </div>
+        <div class="progress-channels-sub" id="progress-channels-sub">
+          수집 대상 채널: Reddit, AVS Forum, Best Buy, Home Depot
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
        3. 푸터
        ========================================================================== -->
   <footer class="site-footer" role="contentinfo">
@@ -188,6 +226,7 @@
   <script src="js/mock_data.js"></script>
   <script src="js/csv_exporter.js"></script>
   <script src="js/api.js"></script>
+  <script src="js/progress_modal.js"></script>
   <script src="js/views/source_view.js"></script>
   <script src="js/views/results_view.js"></script>
   <script src="js/views/scheduled_reports_view.js"></script>

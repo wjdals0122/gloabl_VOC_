@@ -998,6 +998,88 @@ const ResultsView = {
           </div>
         </div>
 
+        <!-- ==================================================================
+             6. 섹션: 수집 상세 VOC 및 데이터 내보내기 (시연용 심층 데이터 분석)
+             ================================================================== -->
+        <div class="dash-section voc-data-section" id="section-voc-raw-list">
+          <div class="section-title-wrap section-title-flex">
+            <div>
+              <h3 class="section-title">📋 수집 상세 VOC 및 데이터 내보내기</h3>
+              <p class="section-sub">선택된 수집 사이트의 개별 고객 반응 원문과 감성 태그를 확인하고 엑셀/CSV로 다운로드합니다.</p>
+            </div>
+            <div class="export-actions-wrap">
+              <button type="button" class="btn btn-primary btn-sm btn-export-excel" onclick="ResultsView.executeDownload('xlsx')">
+                📥 분석 리포트 Excel (.xlsx)
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm btn-export-csv" onclick="ResultsView.executeDownload('csv')">
+                📄 데이터 CSV (.csv)
+              </button>
+            </div>
+          </div>
+
+          <!-- VOC 필터 바 (검색창 + 브랜드 + 감성) -->
+          <div class="voc-filter-toolbar">
+            <div class="toolbar-search-box">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="voc-search-input" class="input-text voc-search-input" 
+                     placeholder="요약문, 원문, 태그 검색..." 
+                     value="${CsvUtils.escapeHtml(this.state.searchFilter)}"
+                     oninput="ResultsView.state.searchFilter = this.value; ResultsView.renderVocListOnly();">
+            </div>
+
+            <div class="toolbar-filter-radios">
+              <!-- 언급 대상 -->
+              <div class="filter-radio-group">
+                <span class="radio-group-title">언급 대상:</span>
+                <label class="radio-label">
+                  <input type="radio" name="filter-brand-radio" value="all" ${this.state.selectedBrands.has('all') ? 'checked' : ''} 
+                         onchange="ResultsView.state.selectedBrands.clear(); ResultsView.state.selectedBrands.add('all'); ResultsView.renderVocListOnly();"> 전체
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="filter-brand-radio" value="lg" ${this.state.selectedBrands.has('lg') ? 'checked' : ''} 
+                         onchange="ResultsView.state.selectedBrands.clear(); ResultsView.state.selectedBrands.add('lg'); ResultsView.renderVocListOnly();"> LG 직접 언급
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="filter-brand-radio" value="competitor" ${this.state.selectedBrands.has('competitor') ? 'checked' : ''} 
+                         onchange="ResultsView.state.selectedBrands.clear(); ResultsView.state.selectedBrands.add('competitor'); ResultsView.renderVocListOnly();"> 타사/비교 언급
+                </label>
+              </div>
+
+              <!-- 감성 -->
+              <div class="filter-radio-group">
+                <span class="radio-group-title">감성:</span>
+                <label class="radio-label">
+                  <input type="radio" name="filter-sent-radio" value="all" ${this.state.sentimentFilter === 'all' ? 'checked' : ''} 
+                         onchange="ResultsView.state.sentimentFilter = 'all'; ResultsView.renderVocListOnly();"> 전체
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="filter-sent-radio" value="positive" ${this.state.sentimentFilter === 'positive' ? 'checked' : ''} 
+                         onchange="ResultsView.state.sentimentFilter = 'positive'; ResultsView.renderVocListOnly();"> 긍정
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="filter-sent-radio" value="neutral" ${this.state.sentimentFilter === 'neutral' ? 'checked' : ''} 
+                         onchange="ResultsView.state.sentimentFilter = 'neutral'; ResultsView.renderVocListOnly();"> 중립
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="filter-sent-radio" value="negative" ${this.state.sentimentFilter === 'negative' ? 'checked' : ''} 
+                         onchange="ResultsView.state.sentimentFilter = 'negative'; ResultsView.renderVocListOnly();"> 부정
+                </label>
+              </div>
+
+              <button type="button" class="btn-filter-reset" onclick="ResultsView.resetFilters()">초기화</button>
+            </div>
+          </div>
+
+          <!-- VOC 카드 리스트 -->
+          <div class="voc-list-header-meta">
+            <span>수집 결과: <strong id="voc-filtered-count-badge" class="filtered-badge">${this.getFilteredResults().length}건</strong></span>
+          </div>
+
+          <div id="voc-cards-container" class="voc-cards-container">
+            ${this.getFilteredResults().map(item => this.renderVocCard(item)).join('')}
+          </div>
+        </div>
+
       </div>
     `;
 

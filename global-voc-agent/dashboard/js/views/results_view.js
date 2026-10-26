@@ -597,6 +597,7 @@ const ResultsView = {
     const data = this.state.analyticsData || MockData.getDashboardAnalytics(this.state.keyword, this.state.period, this.state.channel);
     const kpi = data.kpi;
     const sentiment = data.sentiment;
+    const top10Keywords = data.top10Keywords || [];
     const posKeywords = data.positiveKeywords;
     const negKeywords = data.negativeKeywords;
     const allKeywords = data.allKeywords;
@@ -609,7 +610,7 @@ const ResultsView = {
       <div class="voc-intelligence-dashboard">
 
         <!-- ==================================================================
-             1. 상단 컨텍스트 & 제외 키워드 바 (레퍼런스 이미지 헤더 스타일)
+             1. 상단 컨텍스트 바
              ================================================================== -->
         <div class="dash-context-bar">
           <div class="context-left-info">
@@ -646,7 +647,7 @@ const ResultsView = {
         </div>
 
         <!-- ==================================================================
-             2. 상단 4대 핵심 메트릭 KPI 카드 그리드 (피크일 삭제 및 최다 사이트명 적용)
+             2. 상단 4대 핵심 메트릭 KPI 카드 그리드 (최다 사이트 대신 순 감성 지표 적용)
              ================================================================== -->
         <div class="kpi-metrics-grid kpi-grid-4cols">
           <!-- 카드 1: 총 언급량 -->
@@ -672,7 +673,7 @@ const ResultsView = {
             <div class="kpi-body">
               <div class="kpi-main-val">${kpi.dailyAvg}<span>건</span></div>
               <div class="kpi-sub-text">
-                선택된 ${activeSiteCount}개 수집 사이트 평균
+                선택된 ${activeSiteCount}개 수집 채널 평균
               </div>
               <div class="kpi-minibars">
                 <span class="bar b1"></span><span class="bar b2"></span><span class="bar b3"></span>
@@ -681,22 +682,19 @@ const ResultsView = {
             </div>
           </div>
 
-          <!-- 카드 3: 최다 언급 사이트 (요구사항: 수집한 사이트명으로 표시) -->
-          <div class="kpi-card highlight-site-kpi">
+          <!-- 카드 3: 순 감성 지수 (Net Sentiment Score: 글로벌 표준 브랜드 호감도) -->
+          <div class="kpi-card highlight-kpi-net">
             <div class="kpi-header">
-              <span class="kpi-title">최다 언급 사이트</span>
-              <span class="kpi-tooltip" title="가장 많은 반응이 수집된 개별 사이트명">?</span>
+              <span class="kpi-title">순 감성 지수 (NSS)</span>
+              <span class="kpi-tooltip" title="긍정 비율에서 부정 비율을 뺀 순 호감도 지표 (글로벌 표준 소셜 리스닝 지수)">?</span>
             </div>
             <div class="kpi-body">
-              <div class="kpi-main-val val-site-name">
-                ${CsvUtils.escapeHtml(kpi.topSite.siteName)}
-                <span class="badge-ch-type">${CsvUtils.escapeHtml(kpi.topSite.channelType)}</span>
-              </div>
+              <div class="kpi-main-val val-net-sentiment">${kpi.netSentiment}</div>
               <div class="kpi-sub-text">
-                <strong>${Number(kpi.topSite.count).toLocaleString()}건</strong> · 점유율 <strong>${kpi.topSite.sharePercent}%</strong>
+                긍정 우세 (격차 ${kpi.netSentiment}%p, 50점 이상 우수)
               </div>
-              <div class="kpi-share-bar">
-                <div class="share-comm" style="width: ${kpi.topSite.sharePercent}%; background: ${kpi.topSite.color || '#a50034'};"></div>
+              <div class="kpi-gauge-bar">
+                <div class="gauge-fill fill-net" style="width: ${Math.min(100, Math.max(15, (kpi.netSentimentValue + 100) / 2))}%;"></div>
               </div>
             </div>
           </div>
@@ -768,7 +766,7 @@ const ResultsView = {
                   <h3 class="box-title">언급량 추이</h3>
                   <span class="badge-ai-indicator">✨ 사이트별 추이</span>
                   <span class="chart-meta-stat">
-                    총 언급량 <strong>${Number(kpi.totalCount).toLocaleString()}건</strong> · 활성 사이트 <strong>${activeSiteCount}개</strong> · 일평균 <strong>${kpi.dailyAvg}건</strong>
+                    총 언급량 <strong>${Number(kpi.totalCount).toLocaleString()}건</strong> / 활성 사이트 <strong>${activeSiteCount}개</strong> / 일평균 <strong>${kpi.dailyAvg}건</strong>
                   </span>
                 </div>
                 <div class="chart-actions">
@@ -787,19 +785,20 @@ const ResultsView = {
         </div>
 
         <!-- ==================================================================
-             4. 섹션: "언급키워드 + 긍부정"
+             4. 섹션: "언급키워드 + 긍부정" (통합 Top 10 + 긍정/부정 Top 5)
              ================================================================== -->
         <div class="dash-section sentiment-keywords-section">
           <div class="section-title-wrap">
-            <h3 class="section-title">📊 언급키워드 + 긍부정 분석</h3>
-            <p class="section-sub">선택된 수집 사이트의 VOC에서 고객들이 가장 많이 언급한 긍정·부정 키워드 Top 5와 감성 비율입니다.</p>
+            <h3 class="section-title">📊 핵심 언급 키워드 및 감성 분석</h3>
+            <p class="section-sub">선택된 수집 채널 전체의 통합 언급량 순위(Top 10) 및 긍정 부정 반응 키워드 분석입니다.</p>
           </div>
 
-          <div class="sk-layout-grid">
-            <!-- (1) 전체 긍정·부정 비율 (원/도넛 그래프) -->
+          <!-- 상단 2열 그리드: (1) 전체 긍부정 비율 도넛 + (2) 통합 언급량 키워드 1~10순위 -->
+          <div class="sk-top-layout-grid">
+            <!-- (1) 전체 긍정 및 부정 비율 (원/도넛 그래프) -->
             <div class="sk-card donut-card">
               <div class="card-head">
-                <h4 class="card-head-title">전체 긍정·부정 비율</h4>
+                <h4 class="card-head-title">전체 긍정 및 부정 비율</h4>
                 <span class="help-icon" title="Gemini AI가 문맥을 분석하여 분류한 감성 지수">?</span>
               </div>
               <div class="donut-chart-container">
@@ -833,75 +832,83 @@ const ResultsView = {
               </div>
             </div>
 
-            <!-- (2) 긍정 키워드 1~5순위 & 부정 키워드 1~5순위 -->
-            <div class="sk-card ranking-card">
-              <div class="ranking-cols-grid">
-                <!-- 긍정 키워드 Top 5 -->
-                <div class="ranking-column pos-column">
-                  <div class="col-head">
-                    <span class="col-title"><span class="badge-icon-pos">👍</span> 긍정 키워드 1~5순위</span>
-                    <span class="col-meta">비중 및 주요 평가</span>
-                  </div>
-                  <div class="ranking-list">
-                    ${posKeywords.map(k => `
-                      <div class="ranking-item" onclick="ResultsView.selectKeywordTag('${k.keyword}')" title="클릭 시 관련 VOC 필터링">
-                        <div class="item-rank-wrap">
-                          <span class="rank-badge rank-pos">${k.rank}</span>
-                          <span class="item-keyword">${CsvUtils.escapeHtml(k.keyword)}</span>
-                        </div>
-                        <div class="item-stat-wrap">
-                          <div class="bar-track">
-                            <div class="bar-fill fill-pos" style="width: ${k.percent * 2.5}%;"></div>
-                          </div>
-                          <span class="item-count">${k.count}건 (${k.percent}%)</span>
-                        </div>
-                        <div class="item-desc">${CsvUtils.escapeHtml(k.desc)}</div>
+            <!-- (2) 통합 언급량 키워드 1~10순위 (Top 10) -->
+            <div class="sk-card top10-card">
+              <div class="card-head">
+                <h4 class="card-head-title"><span class="badge-icon-total">🔥</span> 전체 통합 언급량 키워드 1~10순위</h4>
+                <span class="card-head-meta">감성 태그 및 언급 비중</span>
+              </div>
+              <div class="top10-grid-list">
+                ${top10Keywords.map(k => {
+                  const sentClass = k.sentiment === 'pos' ? 'tag-pos' : k.sentiment === 'neg' ? 'tag-neg' : 'tag-neu';
+                  const sentLabel = k.sentiment === 'pos' ? '긍정' : k.sentiment === 'neg' ? '부정' : '중립';
+                  return `
+                    <div class="top10-item" onclick="ResultsView.selectKeywordTag('${k.keyword}')" title="클릭 시 관련 VOC 검색">
+                      <span class="top10-rank ${k.rank <= 3 ? 'rank-highlight' : ''}">${k.rank}</span>
+                      <span class="top10-keyword">${CsvUtils.escapeHtml(k.keyword)}</span>
+                      <span class="top10-sentiment-badge ${sentClass}">${sentLabel}</span>
+                      <div class="top10-track">
+                        <div class="top10-bar ${sentClass}" style="width: ${Math.min(100, k.percent * 4.5)}%;"></div>
                       </div>
-                    `).join('')}
-                  </div>
-                </div>
-
-                <!-- 부정 키워드 Top 5 -->
-                <div class="ranking-column neg-column">
-                  <div class="col-head">
-                    <span class="col-title"><span class="badge-icon-neg">👎</span> 부정 키워드 1~5순위</span>
-                    <span class="col-meta">비중 및 개선 요구</span>
-                  </div>
-                  <div class="ranking-list">
-                    ${negKeywords.map(k => `
-                      <div class="ranking-item" onclick="ResultsView.selectKeywordTag('${k.keyword}')" title="클릭 시 관련 VOC 필터링">
-                        <div class="item-rank-wrap">
-                          <span class="rank-badge rank-neg">${k.rank}</span>
-                          <span class="item-keyword">${CsvUtils.escapeHtml(k.keyword)}</span>
-                        </div>
-                        <div class="item-stat-wrap">
-                          <div class="bar-track">
-                            <div class="bar-fill fill-neg" style="width: ${k.percent * 1.8}%;"></div>
-                          </div>
-                          <span class="item-count">${k.count}건 (${k.percent}%)</span>
-                        </div>
-                        <div class="item-desc">${CsvUtils.escapeHtml(k.desc)}</div>
-                      </div>
-                    `).join('')}
-                  </div>
-                </div>
+                      <span class="top10-count">${k.count}건 (${k.percent}%)</span>
+                    </div>
+                  `;
+                }).join('')}
               </div>
             </div>
           </div>
 
-          <!-- (3) 전체 언급 키워드 태그 클러스터 -->
-          <div class="all-keywords-cluster-box">
-            <div class="cluster-title">
-              <span>🏷️ 전체 언급 키워드 (클릭하여 해당 VOC 바로 확인):</span>
+          <!-- 하단 2열 그리드: (3) 긍정 키워드 1~5순위 & 부정 키워드 1~5순위 (서브설명 제거, 깔끔한 단어형) -->
+          <div class="sk-bottom-rank-grid">
+            <!-- 긍정 키워드 Top 5 -->
+            <div class="sk-card ranking-column-card pos-theme">
+              <div class="col-head">
+                <span class="col-title"><span class="badge-icon-pos">👍</span> 긍정 키워드 1~5순위</span>
+                <span class="col-meta">호평 요인 순위</span>
+              </div>
+              <div class="clean-ranking-list">
+                ${posKeywords.map(k => `
+                  <div class="clean-rank-item" onclick="ResultsView.selectKeywordTag('${k.keyword}')" title="클릭 시 관련 VOC 검색">
+                    <div class="rank-item-left">
+                      <span class="clean-rank-badge rank-pos">${k.rank}</span>
+                      <span class="clean-keyword-name">${CsvUtils.escapeHtml(k.keyword)}</span>
+                    </div>
+                    <div class="rank-item-right">
+                      <div class="clean-bar-track">
+                        <div class="clean-bar-fill fill-pos" style="width: ${k.percent * 2.8}%;"></div>
+                      </div>
+                      <span class="clean-count-stat">${k.count}건 (${k.percent}%)</span>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
             </div>
-            <div class="cluster-tags-cloud">
-              ${allKeywords.map(item => `
-                <button type="button" class="cluster-tag-btn tag-${item.sentiment}" onclick="ResultsView.selectKeywordTag('${item.tag}')">
-                  ${item.tag} <span class="tag-cnt">${item.count}</span>
-                </button>
-              `).join('')}
+
+            <!-- 부정 키워드 Top 5 -->
+            <div class="sk-card ranking-column-card neg-theme">
+              <div class="col-head">
+                <span class="col-title"><span class="badge-icon-neg">👎</span> 부정 키워드 1~5순위</span>
+                <span class="col-meta">개선 및 불만 요인 순위</span>
+              </div>
+              <div class="clean-ranking-list">
+                ${negKeywords.map(k => `
+                  <div class="clean-rank-item" onclick="ResultsView.selectKeywordTag('${k.keyword}')" title="클릭 시 관련 VOC 검색">
+                    <div class="rank-item-left">
+                      <span class="clean-rank-badge rank-neg">${k.rank}</span>
+                      <span class="clean-keyword-name">${CsvUtils.escapeHtml(k.keyword)}</span>
+                    </div>
+                    <div class="rank-item-right">
+                      <div class="clean-bar-track">
+                        <div class="clean-bar-fill fill-neg" style="width: ${k.percent * 2.0}%;"></div>
+                      </div>
+                      <span class="clean-count-stat">${k.count}건 (${k.percent}%)</span>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
             </div>
           </div>
+
         </div>
 
         <!-- ==================================================================

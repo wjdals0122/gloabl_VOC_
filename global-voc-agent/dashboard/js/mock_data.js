@@ -281,81 +281,79 @@ const MockData = {
 
     const dailyAvg = Math.max(1, Math.round(activeTotal / 30));
 
-    // 감성 집계 (68.4% 긍정, 15.4% 중립, 16.2% 부정)
-    const posRate = 68.4;
-    const neuRate = 15.4;
-    const negRate = 16.2;
+    // 감성 집계 (78.4% 긍정, 6.8% 중립, 14.8% 부정)
+    const posRate = 78.4;
+    const neuRate = 6.8;
+    const negRate = 14.8;
     const posCount = Math.round(activeTotal * (posRate / 100));
     const neuCount = Math.round(activeTotal * (neuRate / 100));
     const negCount = Math.max(0, activeTotal - posCount - neuCount);
 
-    // 긍정 / 부정 키워드 1~5위
-    const positiveKeywords = isWashCombo ? [
-      { rank: 1, keyword: '올인원 세탁건조', count: Math.round(382 * scale), percent: 32, desc: '의류 이동 없이 한 번에 건조까지 끝나는 압도적 편의성' },
-      { rank: 2, keyword: '중앙 조작부(센터컨트롤)', count: Math.round(298 * scale), percent: 25, desc: '키가 작아도 손쉬운 중간 조작부의 인체공학적 설계' },
-      { rank: 3, keyword: '세탁실 공간 절약', count: Math.round(245 * scale), percent: 21, desc: '세탁기+건조기 일체형으로 협소한 세탁실 공간 2배 활용' },
-      { rank: 4, keyword: '저소음 / 인버터 DD', count: Math.round(156 * scale), percent: 13, desc: '밤 시간 취침 중에도 소음 걱정 없는 저진동 모터' },
-      { rank: 5, keyword: 'AI 맞춤 세탁 코스', count: Math.round(113 * scale), percent: 9, desc: '직물 재질 자동 감지 및 세제 자동 투입으로 옷감 보호' }
+    // 순 감성 지수 (Net Sentiment Score: 긍정률 - 부정률, 글로벌 표준 지표)
+    const netSentimentValue = (posRate - negRate).toFixed(1);
+    const netSentiment = netSentimentValue >= 0 ? `+${netSentimentValue}` : `${netSentimentValue}`;
+
+    // 1. 통합 언급량 키워드 Top 10 (1위부터 10위까지 순위, 키워드, 언급수, 비율, 감성)
+    const top10Keywords = isWashCombo ? [
+      { rank: 1, keyword: '#올인원세탁건조', count: Math.round(382 * scale), percent: 19.4, sentiment: 'pos' },
+      { rank: 2, keyword: '#센터컨트롤', count: Math.round(298 * scale), percent: 15.1, sentiment: 'pos' },
+      { rank: 3, keyword: '#세탁실공간절약', count: Math.round(245 * scale), percent: 12.4, sentiment: 'pos' },
+      { rank: 4, keyword: '#저소음인버터', count: Math.round(156 * scale), percent: 7.9, sentiment: 'pos' },
+      { rank: 5, keyword: '#히트펌프건조', count: Math.round(144 * scale), percent: 7.3, sentiment: 'pos' },
+      { rank: 6, keyword: '#이불건조시간', count: Math.round(142 * scale), percent: 7.2, sentiment: 'neg' },
+      { rank: 7, keyword: '#경쟁사비교(GE/삼성)', count: Math.round(120 * scale), percent: 6.1, sentiment: 'neu' },
+      { rank: 8, keyword: '#AI맞춤세탁', count: Math.round(113 * scale), percent: 5.7, sentiment: 'pos' },
+      { rank: 9, keyword: '#자동세제투입', count: Math.round(89 * scale), percent: 4.5, sentiment: 'pos' },
+      { rank: 10, keyword: '#초기구매가격', count: Math.round(68 * scale), percent: 3.5, sentiment: 'neg' }
     ] : [
-      { rank: 1, keyword: '압도적 명암비 / 제로블루밍', count: Math.round(410 * scale), percent: 34, desc: '올레드 자발광 픽셀의 완벽한 블랙 표현력' },
-      { rank: 2, keyword: '슬림 월마운트 갤러리 디자인', count: Math.round(320 * scale), percent: 26, desc: '벽에 밀착되는 얇은 베젤과 인테리어 완성도' },
-      { rank: 3, keyword: '게이밍 퍼포먼스 (144Hz G-Sync)', count: Math.round(250 * scale), percent: 20, desc: '콘솔 및 PC 게임 반응속도 및 입력 지연 최소화' },
-      { rank: 4, keyword: '알파11 AI 프로세서 업스케일링', count: Math.round(160 * scale), percent: 13, desc: '저화질 영상의 선명한 4K 화질 복원력' },
-      { rank: 5, keyword: 'webOS 24 편의성 및 스마트허브', count: Math.round(98 * scale), percent: 7, desc: '빠른 앱 전환 및 음성 인식 검색 지원' }
+      { rank: 1, keyword: '#블랙명암비', count: Math.round(410 * scale), percent: 21.6, sentiment: 'pos' },
+      { rank: 2, keyword: '#슬림갤러리디자인', count: Math.round(320 * scale), percent: 16.8, sentiment: 'pos' },
+      { rank: 3, keyword: '#144Hz게이밍', count: Math.round(250 * scale), percent: 13.2, sentiment: 'pos' },
+      { rank: 4, keyword: '#알파11화질엔진', count: Math.round(160 * scale), percent: 8.4, sentiment: 'pos' },
+      { rank: 5, keyword: '#돌비비전지원', count: Math.round(140 * scale), percent: 7.4, sentiment: 'pos' },
+      { rank: 6, keyword: '#실내직사광반사', count: Math.round(120 * scale), percent: 6.3, sentiment: 'neg' },
+      { rank: 7, keyword: '#G-Sync호환', count: Math.round(115 * scale), percent: 6.1, sentiment: 'pos' },
+      { rank: 8, keyword: '#webOS24스마트', count: Math.round(98 * scale), percent: 5.2, sentiment: 'pos' },
+      { rank: 9, keyword: '#벽밀착설치', count: Math.round(88 * scale), percent: 4.6, sentiment: 'pos' },
+      { rank: 10, keyword: '#프리미엄가격대', count: Math.round(82 * scale), percent: 4.3, sentiment: 'neg' }
     ];
 
-    const negativeKeywords = isWashCombo ? [
-      { rank: 1, keyword: '두꺼운 이불 건조시간', count: Math.round(142 * scale), percent: 48, desc: '대용량 극세사 침구류 건조 시 2.5~3시간 이상 소요' },
-      { rank: 2, keyword: '초기 구매 가격 부담', count: Math.round(68 * scale), percent: 23, desc: '일반 분리형 세탁기 세트 대비 높은 출고가' },
-      { rank: 3, keyword: '세탁실 도어 규격', count: Math.round(34 * scale), percent: 12, desc: '배송 설치 시 구형 아파트 문턱/도어 폭 확인 필요' },
-      { rank: 4, keyword: '보풀 필터 청소 주기', count: Math.round(26 * scale), percent: 9, desc: '건조 주기마다 정기적인 보풀 필터 세척 권장' },
-      { rank: 5, keyword: 'ThinQ Wi-Fi 연동 지연', count: Math.round(23 * scale), percent: 8, desc: '간헐적인 원격 제어 앱 푸시 알림 딜레이' }
+    // 2. 긍정 키워드 Top 5 (단어형 핵심 키워드로 깔끔화, 서브설명 삭제)
+    const positiveKeywords = isWashCombo ? [
+      { rank: 1, keyword: '#올인원세탁건조', count: Math.round(382 * scale), percent: 32 },
+      { rank: 2, keyword: '#센터컨트롤', count: Math.round(298 * scale), percent: 25 },
+      { rank: 3, keyword: '#세탁실공간절약', count: Math.round(245 * scale), percent: 21 },
+      { rank: 4, keyword: '#저소음인버터', count: Math.round(156 * scale), percent: 13 },
+      { rank: 5, keyword: '#자동세제투입', count: Math.round(113 * scale), percent: 9 }
     ] : [
-      { rank: 1, keyword: '실내 직사광 반사 / 눈부심', count: Math.round(120 * scale), percent: 42, desc: '밝은 거실 창문 역광 환경에서 반사 체감' },
-      { rank: 2, keyword: '고가 프리미엄 가격대', count: Math.round(82 * scale), percent: 29, desc: '경쟁 LCD/QLED TV 대비 가격 장벽' },
-      { rank: 3, keyword: '내장 스피커 저음역 아쉬움', count: Math.round(41 * scale), percent: 14, desc: '슬림 바디로 인해 외장 사운드바 구매 고려' },
-      { rank: 4, keyword: '매직 리모컨 호불호', count: Math.round(25 * scale), percent: 9, desc: '에어 마우스 포인터 조작 시 손목 피로도' },
-      { rank: 5, keyword: '설치 기사 벽면 타공 부담', count: Math.round(17 * scale), percent: 6, desc: '아트월 대리석 벽면 타공 시 사전 점검 필요' }
+      { rank: 1, keyword: '#블랙명암비', count: Math.round(410 * scale), percent: 34 },
+      { rank: 2, keyword: '#슬림갤러리디자인', count: Math.round(320 * scale), percent: 26 },
+      { rank: 3, keyword: '#144Hz게이밍', count: Math.round(250 * scale), percent: 20 },
+      { rank: 4, keyword: '#알파11화질엔진', count: Math.round(160 * scale), percent: 13 },
+      { rank: 5, keyword: '#webOS24스마트', count: Math.round(98 * scale), percent: 7 }
+    ];
+
+    // 3. 부정 키워드 Top 5 (단어형 핵심 키워드로 깔끔화, 서브설명 삭제)
+    const negativeKeywords = isWashCombo ? [
+      { rank: 1, keyword: '#이불건조시간', count: Math.round(142 * scale), percent: 48 },
+      { rank: 2, keyword: '#초기구매가격', count: Math.round(68 * scale), percent: 23 },
+      { rank: 3, keyword: '#세탁실도어규격', count: Math.round(34 * scale), percent: 12 },
+      { rank: 4, keyword: '#보풀필터청소', count: Math.round(26 * scale), percent: 9 },
+      { rank: 5, keyword: '#ThinQ앱연동', count: Math.round(23 * scale), percent: 8 }
+    ] : [
+      { rank: 1, keyword: '#실내직사광반사', count: Math.round(120 * scale), percent: 42 },
+      { rank: 2, keyword: '#프리미엄가격대', count: Math.round(82 * scale), percent: 29 },
+      { rank: 3, keyword: '#내장스피커출력', count: Math.round(41 * scale), percent: 14 },
+      { rank: 4, keyword: '#매직리모컨조작', count: Math.round(25 * scale), percent: 9 },
+      { rank: 5, keyword: '#벽면타공설치', count: Math.round(17 * scale), percent: 6 }
     ];
 
     // 전체 언급 키워드 태그 클러스터
-    let allKeywords = isWashCombo ? [
-      { tag: '#올인원편의성', sentiment: 'pos', count: 382 },
-      { tag: '#센터컨트롤', sentiment: 'pos', count: 298 },
-      { tag: '#세탁실공간절약', sentiment: 'pos', count: 245 },
-      { tag: '#저소음인버터', sentiment: 'pos', count: 156 },
-      { tag: '#AI맞춤세탁', sentiment: 'pos', count: 113 },
-      { tag: '#건조시간소요', sentiment: 'neg', count: 142 },
-      { tag: '#가격부담', sentiment: 'neg', count: 68 },
-      { tag: '#세탁실규격', sentiment: 'neu', count: 34 },
-      { tag: '#보풀필터', sentiment: 'neu', count: 26 },
-      { tag: '#자동세제투입', sentiment: 'pos', count: 89 },
-      { tag: '#히트펌프건조', sentiment: 'pos', count: 144 },
-      { tag: '#이불빨래', sentiment: 'neu', count: 72 },
-      { tag: '#ThinQ연동', sentiment: 'neu', count: 54 },
-      { tag: '#전기요금절감', sentiment: 'pos', count: 82 },
-      { tag: '#경쟁사비교(GE/삼성)', sentiment: 'neu', count: 120 }
-    ] : [
-      { tag: '#제로블루밍', sentiment: 'pos', count: 410 },
-      { tag: '#갤러리디자인', sentiment: 'pos', count: 320 },
-      { tag: '#게이밍144Hz', sentiment: 'pos', count: 250 },
-      { tag: '#알파11AI', sentiment: 'pos', count: 160 },
-      { tag: '#webOS24', sentiment: 'pos', count: 98 },
-      { tag: '#직사광반사', sentiment: 'neg', count: 120 },
-      { tag: '#가격부담', sentiment: 'neg', count: 82 },
-      { tag: '#사운드바필요', sentiment: 'neg', count: 41 },
-      { tag: '#매직리모컨', sentiment: 'neu', count: 35 },
-      { tag: '#G-Sync지원', sentiment: 'pos', count: 115 },
-      { tag: '#벽밀착설치', sentiment: 'pos', count: 88 },
-      { tag: '#돌비비전', sentiment: 'pos', count: 140 }
-    ];
-
-    // 제외 키워드가 설정된 경우 키워드 클러스터에서 필터링
-    if (excludedKeywords && excludedKeywords.length > 0) {
-      allKeywords = allKeywords.filter(k => {
-        return !excludedKeywords.some(ex => k.tag.toLowerCase().includes(ex.toLowerCase()));
-      });
-    }
+    let allKeywords = top10Keywords.map(k => ({
+      tag: k.keyword,
+      sentiment: k.sentiment,
+      count: k.count
+    }));
 
     // 채널별 반응 비교 요약
     const commTotal = sites.filter(s => s.channelType === '커뮤니티' && !s.isExcluded).reduce((sum, s) => sum + s.count, 0);
@@ -404,7 +402,8 @@ const MockData = {
       kpi: {
         totalCount: activeTotal,
         dailyAvg,
-        topSite, // 최다 언급 사이트 객체 (피크일 대신 사용)
+        netSentiment, // 순 감성 지수 (최다 언급 사이트 대체)
+        netSentimentValue: Number(netSentimentValue),
         posRate,
         neuRate,
         negRate
@@ -421,8 +420,9 @@ const MockData = {
         negCount,
         negRate
       },
-      positiveKeywords,
-      negativeKeywords,
+      top10Keywords, // 통합 1~10위 키워드
+      positiveKeywords, // 긍정 1~5위
+      negativeKeywords, // 부정 1~5위
       allKeywords,
       channelComparison
     };
@@ -432,5 +432,6 @@ const MockData = {
 if (typeof window !== 'undefined') {
   window.MockData = MockData;
 }
+
 
 

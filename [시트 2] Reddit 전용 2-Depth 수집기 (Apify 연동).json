@@ -1,0 +1,112 @@
+{
+  "name": "[시트 2] Reddit 전용 2-Depth 수집기 (Apify 연동)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "f5a77ccd-9a9f-4f7e-87f9-dddde3015ff3",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/trudax~reddit-scraper-lite/run-sync-get-dataset-items",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"searches\": [\n    \"{{ $json.keyword }}\"\n  ],\n  \"searchPosts\": true,\n  \"searchComments\": true,\n  \"skipComments\": false,\n  \"maxItems\": 30,\n  \"maxPostCount\": 5,\n  \"maxComments\": 15,\n  \"sort\": \"relevance\",\n  \"time\": \"all\"\n}",
+        "options": {
+          "timeout": 180000
+        }
+      },
+      "id": "9d3c2fb2-244f-4f8f-87b5-04e058246600",
+      "name": "Apify Reddit Scraper (본문+댓글 일괄수집)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        272,
+        0
+      ],
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "ojBq1VrsjaZyxiUF",
+          "name": "token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const vocRows = [];\nconst triggerData = $('Execute Workflow Trigger').first().json || {};\nconst category = triggerData.category || 'Community/Forum';\nconst sourceSite = triggerData.site_name || 'Reddit';\n\n// 날짜를 YYYY-MM-DD 형태로 깔끔하게 변환하는 헬퍼 함수\nfunction formatDate(rawDate) {\n  if (!rawDate) return null;\n  try {\n    // Unix timestamp(초 단위 숫자)인 경우 처리\n    const d = typeof rawDate === 'number' && rawDate < 10000000000 \n      ? new Date(rawDate * 1000) \n      : new Date(rawDate);\n    return isNaN(d.getTime()) ? String(rawDate).substring(0, 10) : d.toISOString().split('T')[0];\n  } catch (e) {\n    return String(rawDate).substring(0, 10);\n  }\n}\n\nfor (const item of $input.all()) {\n  const d = item.json;\n  if (!d) continue;\n\n  const rawId = String(d.parsedId || d.id || Math.random().toString(36).substring(2, 9)).replace(/^t[13]_/, '');\n  const dataType = String(d.dataType || d.type || d.kind || '').toLowerCase();\n  const isComment = dataType.includes('comment') || dataType === 't1' || (!d.title && (d.parentId || d.postId || d.body));\n  \n  const postDate = formatDate(d.createdAt || d.created_utc || d.date || d.publishedAt);\n\n  if (!isComment && d.title) {\n    const postId = `RD_POST_${rawId}`;\n    const title = d.title || '';\n    const body = d.body || d.selftext || d.text || d.description || '(본문 텍스트 없음)';\n\n    vocRows.push({\n      json: {\n        voc_id: postId,\n        source_site: sourceSite,\n        category: category,\n        content_type: 'POST',\n        content: `[Title] ${title}\\n[Body] ${body}`,\n        parent_id: null,\n        published_at: postDate // ★ 게시글 작성일 추가\n      }\n    });\n\n    const nested = d.comments || d.replies || [];\n    if (Array.isArray(nested)) {\n      nested.forEach((c, idx) => {\n        const cBody = c.body || c.text || c.html || '';\n        if (!cBody || cBody === '[deleted]' || cBody === '[removed]') return;\n        const cId = String(c.parsedId || c.id || `${rawId}_${idx + 1}`).replace(/^t[13]_/, '');\n        const cDate = formatDate(c.createdAt || c.created_utc || c.date) || postDate;\n        vocRows.push({\n          json: {\n            voc_id: `RD_CMT_${cId}`,\n            source_site: sourceSite,\n            category: category,\n            content_type: 'COMMENT',\n            content: cBody,\n            parent_id: postId,\n            published_at: cDate // ★ 중첩 댓글 작성일 추가\n          }\n        });\n      });\n    }\n  } else {\n    const commentBody = d.body || d.text || d.selftext || '';\n    if (!commentBody || commentBody === '[deleted]' || commentBody === '[removed]') continue;\n    const rawPostId = String(d.postId || d.parentId || d.linkId || '').replace(/^t[13]_/, '');\n\n    vocRows.push({\n      json: {\n        voc_id: `RD_CMT_${rawId}`,\n        source_site: sourceSite,\n        category: category,\n        content_type: 'COMMENT',\n        content: commentBody,\n        parent_id: rawPostId ? `RD_POST_${rawPostId}` : null,\n        published_at: postDate // ★ 개별 댓글 작성일 추가\n      }\n    });\n  }\n}\n\nreturn vocRows;"
+      },
+      "id": "f4c83db8-22a4-4b7b-bb82-575fc3a8891b",
+      "name": "VOC 스키마 정규화 (본문+댓글 분리)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        0
+      ]
+    }
+  ],
+  "pinData": {
+    "Execute Workflow Trigger": [
+      {
+        "json": {
+          "url": "https://www.reddit.com/search/?q=pralka%20z%20suszark%C4%85",
+          "fallback_url": "",
+          "category": "Community/Forum",
+          "site_name": "Reddit",
+          "country": "PL",
+          "keyword": "pralka z suszarką",
+          "original_keyword": "세탁건조기"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Apify Reddit Scraper (본문+댓글 일괄수집)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apify Reddit Scraper (본문+댓글 일괄수집)": {
+      "main": [
+        [
+          {
+            "node": "VOC 스키마 정규화 (본문+댓글 분리)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "0d3c0634-57e6-4dcd-b465-4fc5f0d22f45",
+  "meta": {
+    "instanceId": "d03141eb250e7a977c1b8248ba83fa0d01dfabd4ff49fe0fd245066ddee8a4e9"
+  },
+  "nodeGroups": [],
+  "id": "Al0sVnnEROX8oG8o",
+  "tags": []
+}

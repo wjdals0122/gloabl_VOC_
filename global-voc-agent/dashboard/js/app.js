@@ -192,7 +192,8 @@ const App = {
           data.selectedSources || [],
           data.autoStart !== false,
           data.period || '1m',
-          data.channel || 'all'
+          data.channel || 'all',
+          data.excludedKeywords || []
         );
       }
     } else if (tabId === 'tab-scheduled') {

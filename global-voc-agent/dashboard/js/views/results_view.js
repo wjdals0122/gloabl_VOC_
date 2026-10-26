@@ -3,15 +3,18 @@
  * 2단계: 소셜 리스닝 & VOC 인텔리전스 대시보드
  * 
  * [요구사항 전면 반영]
- * 1. 상단 KPI 카드 5종 (총 언급량, 피크일, 일평균, 최다 언급 채널, 긍정 반응률)
- * 2. "추이": 검색한 키워드 언급량 추이 (시계열 인터랙티브 라인 차트, 채널별 멀티 라인, 피크일 하이라이트)
- * 3. "언급키워드 + 긍부정":
- *    - 전체 언급 키워드 태그 클러스터
- *    - 전체 긍정·부정 비율 (원/도넛 그래프)
- *    - 긍정 키워드 1~5순위
- *    - 부정 키워드 1~5순위
- * 4. "채널별 반응": 수집 채널별 비교 (커뮤니티 vs 제품리뷰 건수, 감성 분포, 주요 담론, 대표 반응)
- * 5. 하단: 수집된 상세 VOC 원문 데이터 (필터링, 카드 뷰, 분석 리포트 Excel/CSV 내보내기)
+ * 1. 피크일 삭제 (KPI 카드 및 추이 차트 메타에서 피크일 완전 제거)
+ * 2. 채널별 언급량 & 최다 언급 채널 -> 수집한 사이트명(Reddit, Best Buy US 등)으로 표기
+ *    * 채널 매핑:
+ *      - E-commerce : 제품리뷰
+ *      - Community/Forum : 커뮤니티
+ *      - Tech Review : 제품리뷰
+ *      - Price Comparison : 제품리뷰
+ * 3. 추이 그래프 사이트 선택 및 제외 기능 (체크박스 토글 연동, 라인 실시간 제어)
+ * 4. 제외 키워드(Negative Keywords) 설정 및 동적 필터링 기능
+ * 5. 언급키워드 + 긍부정 (원 그래프 + 긍정 1~5위 + 부정 1~5위 + 전체 키워드 클러스터)
+ * 6. 채널별 반응 비교 (커뮤니티 vs 제품리뷰)
+ * 7. 상세 VOC 데이터 리스트 및 Excel/CSV 내보내기
  */
 
 const ResultsView = {
@@ -24,6 +27,12 @@ const ResultsView = {
     channel: 'all', // 'all' | 'community' | 'reviews'
     trendMode: 'daily', // 'daily' | 'weekly'
     
+    // 사이트 선택 및 제외 상태
+    excludedSites: new Set(),
+
+    // 제외 키워드 목록
+    excludedKeywords: [],
+
     // 분석 지표 캐시
     analyticsData: null,
 
@@ -60,11 +69,13 @@ const ResultsView = {
     this.render();
   },
 
-  setTarget(country, keyword, sources = [], autoStart = true, period = '1m', channel = 'all') {
+  setTarget(country, keyword, sources = [], autoStart = true, period = '1m', channel = 'all', excludedKeywords = []) {
     this.state.country = country || 'US';
     this.state.keyword = keyword || 'LG 워시콤보';
     this.state.period = period || '1m';
     this.state.channel = channel || 'all';
+    this.state.excludedSites.clear();
+    this.state.excludedKeywords = Array.isArray(excludedKeywords) ? [...excludedKeywords] : [];
     this.state.searchFilter = '';
     this.state.sourceFilter = 'all';
     this.state.selectedBrands = new Set(['all']);
@@ -84,7 +95,9 @@ const ResultsView = {
     this.state.analyticsData = MockData.getDashboardAnalytics(
       this.state.keyword,
       this.state.period,
-      this.state.channel
+      this.state.channel,
+      this.state.excludedSites,
+      this.state.excludedKeywords
     );
   },
 
@@ -108,6 +121,53 @@ const ResultsView = {
     this.renderTrendChart();
   },
 
+  // --------------------------------------------------------------------------
+  // 사이트 선택 및 제외 (추이 그래프 및 데이터 연동)
+  // --------------------------------------------------------------------------
+  toggleSiteFilter(siteName) {
+    if (this.state.excludedSites.has(siteName)) {
+      this.state.excludedSites.delete(siteName);
+    } else {
+      // 모든 사이트가 제외되지 않도록 최소 1개는 유지
+      const allSites = (this.state.analyticsData && this.state.analyticsData.sites) || [];
+      const currentActive = allSites.filter(s => !this.state.excludedSites.has(s.siteName));
+      if (currentActive.length <= 1 && !this.state.excludedSites.has(siteName)) {
+        alert('최소 1개 이상의 사이트는 선택되어 있어야 합니다.');
+        return;
+      }
+      this.state.excludedSites.add(siteName);
+    }
+
+    this.refreshAnalyticsData();
+    this.render();
+  },
+
+  selectAllSites() {
+    this.state.excludedSites.clear();
+    this.refreshAnalyticsData();
+    this.render();
+  },
+
+  // --------------------------------------------------------------------------
+  // 제외 키워드 관리 (Negative Keywords)
+  // --------------------------------------------------------------------------
+  addExcludedKeyword(keyword) {
+    if (!keyword) return;
+    const cleanWord = keyword.replace(/^#/, '').trim();
+    if (!cleanWord) return;
+    if (!this.state.excludedKeywords.includes(cleanWord)) {
+      this.state.excludedKeywords.push(cleanWord);
+      this.refreshAnalyticsData();
+      this.render();
+    }
+  },
+
+  removeExcludedKeyword(keyword) {
+    this.state.excludedKeywords = this.state.excludedKeywords.filter(w => w !== keyword);
+    this.refreshAnalyticsData();
+    this.render();
+  },
+
   selectKeywordTag(tagText) {
     const cleanWord = tagText.replace(/^#/, '').trim();
     this.state.searchFilter = cleanWord;
@@ -117,7 +177,6 @@ const ResultsView = {
     }
     this.renderVocListOnly();
 
-    // VOC 원문 목록 영역으로 부드럽게 스크롤
     const vocSection = document.getElementById('section-voc-raw-list');
     if (vocSection) {
       vocSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -141,57 +200,44 @@ const ResultsView = {
       this.state.trendChartInstance = null;
     }
 
-    const trend = this.state.analyticsData ? this.state.analyticsData.trend : null;
-    if (!trend) return;
+    const data = this.state.analyticsData;
+    if (!data || !data.sites) return;
 
     if (typeof Chart === 'undefined') {
-      console.warn('Chart.js not loaded. Fallback text rendered.');
+      console.warn('Chart.js not loaded.');
       return;
     }
 
     const ctx = canvas.getContext('2d');
     const datasets = [];
 
-    // 채널 조건에 따른 데이터셋 구성
-    if (this.state.channel === 'all' || this.state.channel === 'community') {
-      datasets.push({
-        label: '커뮤니티',
-        data: trend.commData,
-        borderColor: '#84cc16', // 라임 그린 (레퍼런스 컬러)
-        backgroundColor: 'rgba(132, 204, 22, 0.08)',
-        borderWidth: 2.5,
-        tension: 0.35,
-        pointBackgroundColor: '#84cc16',
-        pointBorderColor: '#ffffff',
-        pointBorderWidth: 2,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        fill: false
-      });
-    }
+    // 1. 활성화된 사이트별 라인 데이터셋 구성
+    data.sites.forEach(site => {
+      if (!site.isExcluded) {
+        datasets.push({
+          label: `${site.siteName} (${site.channelType})`,
+          data: site.trendData,
+          borderColor: site.color,
+          backgroundColor: 'transparent',
+          borderWidth: 2.2,
+          tension: 0.35,
+          pointBackgroundColor: site.color,
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 1.5,
+          pointRadius: 3.5,
+          pointHoverRadius: 6,
+          fill: false
+        });
+      }
+    });
 
-    if (this.state.channel === 'all' || this.state.channel === 'reviews') {
-      datasets.push({
-        label: '제품리뷰',
-        data: trend.revData,
-        borderColor: '#f59e0b', // 웜 앰버 (레퍼런스 컬러)
-        backgroundColor: 'rgba(245, 158, 11, 0.08)',
-        borderWidth: 2.5,
-        tension: 0.35,
-        pointBackgroundColor: '#f59e0b',
-        pointBorderColor: '#ffffff',
-        pointBorderWidth: 2,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        fill: false
-      });
-    }
-
-    if (this.state.channel === 'all') {
+    // 2. 전체 합계선 (2개 이상의 사이트가 활성화된 경우 점선으로 표시)
+    const activeSites = data.sites.filter(s => !s.isExcluded);
+    if (activeSites.length > 1 && data.trend.totalTrendData) {
       datasets.unshift({
-        label: '전체 언급량 (합계)',
-        data: trend.totalData,
-        borderColor: '#a50034', // LG 헤리티지 레드
+        label: '선택 사이트 합계',
+        data: data.trend.totalTrendData,
+        borderColor: '#a50034', // LG 레드
         backgroundColor: 'rgba(165, 0, 52, 0.04)',
         borderWidth: 2,
         borderDash: [4, 4],
@@ -208,7 +254,7 @@ const ResultsView = {
     this.state.trendChartInstance = new Chart(ctx, {
       type: 'line',
       data: {
-        labels: trend.labels,
+        labels: data.trend.labels,
         datasets: datasets
       },
       options: {
@@ -227,7 +273,7 @@ const ResultsView = {
               boxWidth: 12,
               usePointStyle: true,
               pointStyle: 'circle',
-              font: { size: 12, family: 'Pretendard, -apple-system, sans-serif' }
+              font: { size: 11.5, family: 'Pretendard, -apple-system, sans-serif' }
             }
           },
           tooltip: {
@@ -242,8 +288,10 @@ const ResultsView = {
                 return ` ${context.dataset.label}: ${context.parsed.y}건`;
               },
               afterBody: function(contexts) {
-                const total = contexts.reduce((sum, c) => sum + (c.parsed.y || 0), 0);
-                return `──────────────────\n 총 언급량: ${total}건`;
+                // 전체 합계선을 제외한 개별 사이트 합계만 산출
+                const itemContexts = contexts.filter(c => !c.dataset.label.includes('합계'));
+                const sum = itemContexts.reduce((acc, c) => acc + (c.parsed.y || 0), 0);
+                return `──────────────────\n 일일 총합: ${sum}건`;
               }
             }
           }
@@ -265,7 +313,7 @@ const ResultsView = {
             ticks: {
               font: { size: 11, family: 'Pretendard, sans-serif' },
               color: '#64748b',
-              stepSize: 30
+              stepSize: 20
             }
           }
         }
@@ -286,7 +334,7 @@ const ResultsView = {
     if (!sentiment) return;
 
     if (typeof Chart === 'undefined') {
-      console.warn('Chart.js not loaded for doughnut.');
+      console.warn('Chart.js not loaded.');
       return;
     }
 
@@ -331,12 +379,32 @@ const ResultsView = {
   },
 
   // --------------------------------------------------------------------------
-  // VOC 목록 필터링 및 다운로드 로직
+  // VOC 목록 필터링 (제외 사이트 및 제외 키워드 반영)
   // --------------------------------------------------------------------------
   getFilteredResults() {
     let items = this.state.results || [];
 
-    // 1. 검색어 필터
+    // 1. 제외 사이트 필터링
+    if (this.state.excludedSites && this.state.excludedSites.size > 0) {
+      items = items.filter(item => {
+        const sName = item.site_name || '';
+        // Best Buy US, Reddit 등 매핑 검사
+        for (const ex of this.state.excludedSites) {
+          if (sName.toLowerCase().includes(ex.toLowerCase())) return false;
+        }
+        return true;
+      });
+    }
+
+    // 2. 제외 키워드 필터링
+    if (this.state.excludedKeywords && this.state.excludedKeywords.length > 0) {
+      items = items.filter(item => {
+        const text = `${item.kr_summary || ''} ${item.content || ''} ${(item.topic_tags || []).join(' ')}`.toLowerCase();
+        return !this.state.excludedKeywords.some(ex => text.includes(ex.toLowerCase()));
+      });
+    }
+
+    // 3. 검색어 필터
     if (this.state.searchFilter) {
       const q = this.state.searchFilter.toLowerCase().trim();
       items = items.filter(item => {
@@ -345,7 +413,7 @@ const ResultsView = {
       });
     }
 
-    // 2. 브랜드 필터
+    // 4. 브랜드 필터
     if (!this.state.selectedBrands.has('all')) {
       items = items.filter(item => {
         const info = this.getEvaluationTargetInfo(item);
@@ -356,7 +424,7 @@ const ResultsView = {
       });
     }
 
-    // 3. 감성 필터
+    // 5. 감성 필터
     if (this.state.sentimentFilter !== 'all') {
       const target = this.state.sentimentFilter.toUpperCase();
       items = items.filter(item => String(item.ai_sentiment).toUpperCase() === target);
@@ -368,8 +436,6 @@ const ResultsView = {
   getEvaluationTargetInfo(item) {
     const isLg = item.lg_mentioned;
     const comps = item.competitors && Array.isArray(item.competitors) && item.competitors.length > 0 ? item.competitors : [];
-    const sentiment = item.ai_sentiment;
-    const summary = item.kr_summary || '';
 
     if (!isLg && comps.length > 0) {
       return {
@@ -419,7 +485,7 @@ const ResultsView = {
     if (filtered.length === 0) {
       listContainer.innerHTML = `
         <div class="empty-state-card text-center" style="padding: 40px 20px; background: #ffffff; border-radius: 12px; border: 1px dashed #cbd5e1;">
-          <p style="color: #64748b; font-size: 14px; margin-bottom: 8px;">선택한 조건 필터에 일치하는 수집 VOC가 없습니다.</p>
+          <p style="color: #64748b; font-size: 14px; margin-bottom: 8px;">선택한 조건 및 제외 필터에 일치하는 수집 VOC가 없습니다.</p>
           <button type="button" class="btn btn-secondary btn-sm" onclick="ResultsView.resetFilters()">필터 초기화</button>
         </div>
       `;
@@ -434,7 +500,6 @@ const ResultsView = {
     const isExpanded = this.state.expandedReviewIds.has(id);
     const targetInfo = this.getEvaluationTargetInfo(item);
 
-    // 감성 라벨
     const sent = String(item.ai_sentiment || 'NEUTRAL').toUpperCase();
     let sentimentBadge = '<span class="badge-sent sent-neutral">● 중립</span>';
     if (sent === 'POSITIVE') {
@@ -514,7 +579,6 @@ const ResultsView = {
       const csvContent = CsvUtils.generateResultCsv(targetItems, this.state.includeRawText);
       CsvUtils.downloadCsvText(csvContent, `${filename}.csv`);
     } else {
-      // 엑셀 분석 리포트 (요약 + 세부 VOC 2개 시트 구조)
       CsvUtils.downloadMultiSheetExcel(
         targetItems,
         this.state.analyticsData,
@@ -532,27 +596,45 @@ const ResultsView = {
 
     const data = this.state.analyticsData || MockData.getDashboardAnalytics(this.state.keyword, this.state.period, this.state.channel);
     const kpi = data.kpi;
-    const trend = data.trend;
     const sentiment = data.sentiment;
     const posKeywords = data.positiveKeywords;
     const negKeywords = data.negativeKeywords;
     const allKeywords = data.allKeywords;
     const channelComp = data.channelComparison;
+    const sites = data.sites || [];
+
+    const activeSiteCount = sites.filter(s => !s.isExcluded).length;
 
     container.innerHTML = `
       <div class="voc-intelligence-dashboard">
 
         <!-- ==================================================================
-             1. 상단 컨텍스트 & 퀵 필터 바 (레퍼런스 이미지 헤더 스타일)
+             1. 상단 컨텍스트 & 제외 키워드 바 (레퍼런스 이미지 헤더 스타일)
              ================================================================== -->
         <div class="dash-context-bar">
           <div class="context-left-info">
             <span class="context-keyword-tag">
               <span class="tag-icon">🔍</span> 주제어: <strong>${CsvUtils.escapeHtml(this.state.keyword)}</strong>
             </span>
-            <span class="context-purpose-desc">
-              분석 목적: <strong>${CsvUtils.escapeHtml(this.state.keyword)}</strong> 글로벌 고객 VOC 소셜 리스닝 분석
-            </span>
+
+            <!-- 제외 키워드 설정 바 -->
+            <div class="context-exclude-wrap">
+              <span class="exclude-label">🚫 제외 키워드:</span>
+              <div class="exclude-tag-chips">
+                ${this.state.excludedKeywords.length === 0 ? `
+                  <span class="empty-exclude-text">설정된 제외어 없음</span>
+                ` : this.state.excludedKeywords.map(w => `
+                  <span class="exclude-chip">
+                    ${CsvUtils.escapeHtml(w)}
+                    <button type="button" class="btn-del-exclude" onclick="ResultsView.removeExcludedKeyword('${CsvUtils.escapeHtml(w)}')" title="제외어 삭제">✕</button>
+                  </span>
+                `).join('')}
+              </div>
+              <div class="exclude-input-box">
+                <input type="text" id="input-add-exclude" class="input-exclude-inline" placeholder="+ 제외어 입력 후 엔터" 
+                       onkeydown="if(event.key === 'Enter'){ ResultsView.addExcludedKeyword(this.value); this.value = ''; }">
+              </div>
+            </div>
           </div>
 
           <div class="context-right-controls">
@@ -580,14 +662,14 @@ const ResultsView = {
         </div>
 
         <!-- ==================================================================
-             2. 상단 5대 핵심 메트릭 KPI 카드 그리드 (레퍼런스 이미지 카드 스타일)
+             2. 상단 4대 핵심 메트릭 KPI 카드 그리드 (피크일 삭제 및 최다 사이트명 적용)
              ================================================================== -->
-        <div class="kpi-metrics-grid">
+        <div class="kpi-metrics-grid kpi-grid-4cols">
           <!-- 카드 1: 총 언급량 -->
           <div class="kpi-card">
             <div class="kpi-header">
               <span class="kpi-title">총 언급량</span>
-              <span class="kpi-tooltip" title="선택한 기간 내 수집된 유효 고객 리뷰 및 포스트 수">?</span>
+              <span class="kpi-tooltip" title="선택된 사이트 및 유효 키워드 기준 총 VOC 수">?</span>
             </div>
             <div class="kpi-body">
               <div class="kpi-main-val">${Number(kpi.totalCount).toLocaleString()}<span>건</span></div>
@@ -597,28 +679,7 @@ const ResultsView = {
             </div>
           </div>
 
-          <!-- 카드 2: 피크일 -->
-          <div class="kpi-card">
-            <div class="kpi-header">
-              <span class="kpi-title">피크일</span>
-              <span class="kpi-tooltip" title="기간 내 언급량이 가장 집중된 날짜">?</span>
-            </div>
-            <div class="kpi-body">
-              <div class="kpi-main-val val-peak">${kpi.peakDate}</div>
-              <div class="kpi-sub-text">
-                <strong>${kpi.peakCount}건</strong> · 평균의 2.2배
-              </div>
-              <!-- 미니 스파크라인 SVG -->
-              <div class="kpi-sparkline">
-                <svg viewBox="0 0 100 24" class="spark-svg">
-                  <path d="M0,18 L15,16 L30,12 L45,14 L60,4 L75,15 L90,12 L100,20" fill="none" stroke="#a50034" stroke-width="2"/>
-                  <circle cx="60" cy="4" r="3" fill="#a50034"/>
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <!-- 카드 3: 일평균 -->
+          <!-- 카드 2: 일평균 언급량 -->
           <div class="kpi-card">
             <div class="kpi-header">
               <span class="kpi-title">일평균 언급량</span>
@@ -627,7 +688,7 @@ const ResultsView = {
             <div class="kpi-body">
               <div class="kpi-main-val">${kpi.dailyAvg}<span>건</span></div>
               <div class="kpi-sub-text">
-                평균 위 13일 · 아래 17일
+                선택된 ${activeSiteCount}개 수집 사이트 평균
               </div>
               <div class="kpi-minibars">
                 <span class="bar b1"></span><span class="bar b2"></span><span class="bar b3"></span>
@@ -636,25 +697,27 @@ const ResultsView = {
             </div>
           </div>
 
-          <!-- 카드 4: 최다 언급 채널 -->
-          <div class="kpi-card">
+          <!-- 카드 3: 최다 언급 사이트 (요구사항: 수집한 사이트명으로 표시) -->
+          <div class="kpi-card highlight-site-kpi">
             <div class="kpi-header">
-              <span class="kpi-title">최다 언급 채널</span>
-              <span class="kpi-tooltip" title="가장 많은 반응이 수집된 주력 채널">?</span>
+              <span class="kpi-title">최다 언급 사이트</span>
+              <span class="kpi-tooltip" title="가장 많은 반응이 수집된 개별 사이트명">?</span>
             </div>
             <div class="kpi-body">
-              <div class="kpi-main-val val-channel">${kpi.topChannel}</div>
+              <div class="kpi-main-val val-site-name">
+                ${CsvUtils.escapeHtml(kpi.topSite.siteName)}
+                <span class="badge-ch-type">${CsvUtils.escapeHtml(kpi.topSite.channelType)}</span>
+              </div>
               <div class="kpi-sub-text">
-                점유율 <strong>${kpi.topChannelShare}</strong> 집중
+                <strong>${Number(kpi.topSite.count).toLocaleString()}건</strong> · 점유율 <strong>${kpi.topSite.sharePercent}%</strong>
               </div>
               <div class="kpi-share-bar">
-                <div class="share-comm" style="width: 71%;" title="커뮤니티 71%"></div>
-                <div class="share-rev" style="width: 29%;" title="제품리뷰 29%"></div>
+                <div class="share-comm" style="width: ${kpi.topSite.sharePercent}%; background: ${kpi.topSite.color || '#a50034'};"></div>
               </div>
             </div>
           </div>
 
-          <!-- 카드 5: 긍정 반응률 -->
+          <!-- 카드 4: 긍정 반응률 -->
           <div class="kpi-card highlight-kpi">
             <div class="kpi-header">
               <span class="kpi-title">긍정 반응률</span>
@@ -673,50 +736,56 @@ const ResultsView = {
         </div>
 
         <!-- ==================================================================
-             3. 섹션: "추이" - 검색한 키워드 언급량 추이 (레퍼런스 이미지 중앙)
+             3. 섹션: "추이" - 수집 사이트별 언급량 & 사이트 선택/제외 인터랙티브 차트
              ================================================================== -->
         <div class="dash-section trend-section">
           <div class="trend-layout-grid">
-            <!-- 좌측: 채널별 언급량 요약 카드 -->
+            <!-- 좌측: 수집 사이트별 언급량 및 선택/제외 컨트롤 -->
             <div class="trend-left-summary">
               <div class="channel-vol-header">
-                <h3 class="box-title">채널별 언급량</h3>
-                <span class="help-icon" title="커뮤니티 및 제품리뷰 채널별 유효 언급량">?</span>
-              </div>
-              <div class="channel-vol-items">
-                <div class="vol-item ${this.state.channel === 'community' || this.state.channel === 'all' ? 'active' : ''}">
-                  <div class="vol-label">
-                    <span class="dot-legend dot-comm"></span>
-                    <span class="name">커뮤니티</span>
-                  </div>
-                  <div class="vol-figure">
-                    <strong>${Number(channelComp.community.totalCount).toLocaleString()}건</strong>
-                    <span class="pct">71.0%</span>
-                  </div>
+                <div>
+                  <h3 class="box-title">수집 사이트별 언급량</h3>
+                  <span class="box-subtitle">체크하여 그래프 선택/제외</span>
                 </div>
-                <div class="vol-item ${this.state.channel === 'reviews' || this.state.channel === 'all' ? 'active' : ''}">
-                  <div class="vol-label">
-                    <span class="dot-legend dot-rev"></span>
-                    <span class="name">제품리뷰</span>
-                  </div>
-                  <div class="vol-figure">
-                    <strong>${Number(channelComp.reviews.totalCount).toLocaleString()}건</strong>
-                    <span class="pct">29.0%</span>
-                  </div>
-                </div>
+                <button type="button" class="btn-link-sm" onclick="ResultsView.selectAllSites()" title="모든 사이트 표시">전체선택</button>
               </div>
+
+              <!-- 사이트별 선택/제외 체크박스 리스트 -->
+              <div class="site-toggle-list">
+                ${sites.map(site => {
+                  const isChecked = !site.isExcluded;
+                  return `
+                    <label class="site-toggle-item ${isChecked ? 'is-active' : 'is-disabled'}" title="클릭하여 차트에서 ${site.siteName} 선택/제외">
+                      <input type="checkbox" class="site-checkbox" ${isChecked ? 'checked' : ''} 
+                             onchange="ResultsView.toggleSiteFilter('${site.siteName}')">
+                      <span class="dot-legend" style="background-color: ${site.color};"></span>
+                      <div class="site-info-text">
+                        <span class="site-name">${CsvUtils.escapeHtml(site.siteName)}</span>
+                        <span class="site-cat-tag ${site.channelType === '커뮤니티' ? 'cat-comm' : 'cat-rev'}">${site.channelType}</span>
+                      </div>
+                      <div class="site-vol-stat">
+                        <strong>${Number(site.count).toLocaleString()}건</strong>
+                        <span class="pct">${site.sharePercent}%</span>
+                      </div>
+                    </label>
+                  `;
+                }).join('')}
+              </div>
+
               <div class="trend-summary-notice">
-                💡 피크일 <strong>${trend.peakLabel}</strong>에 신규 실사용 후기 및 콤보 모델 추천 질의가 집중되었습니다.
+                💡 사이트 체크박스를 해제하면 추이 그래프와 집계 지표에서 해당 사이트가 즉시 제외됩니다.
               </div>
             </div>
 
-            <!-- 우측: Chart.js 시계열 라인 차트 컨테이너 -->
+            <!-- 우측: Chart.js 시계열 라인 차트 컨테이너 (피크일 문구 삭제) -->
             <div class="trend-right-chart">
               <div class="chart-top-bar">
                 <div class="chart-title-area">
                   <h3 class="box-title">언급량 추이</h3>
-                  <span class="badge-ai-indicator">✨ AI 시계열</span>
-                  <span class="chart-meta-stat">총 언급량 <strong>${Number(kpi.totalCount).toLocaleString()}건</strong> · 피크일 <strong>${trend.peakLabel}</strong> (${trend.peakCount}건)</span>
+                  <span class="badge-ai-indicator">✨ 사이트별 추이</span>
+                  <span class="chart-meta-stat">
+                    총 언급량 <strong>${Number(kpi.totalCount).toLocaleString()}건</strong> · 활성 사이트 <strong>${activeSiteCount}개</strong> · 일평균 <strong>${kpi.dailyAvg}건</strong>
+                  </span>
                 </div>
                 <div class="chart-actions">
                   <div class="btn-group-toggle">
@@ -727,19 +796,19 @@ const ResultsView = {
               </div>
               <!-- 캔버스 차트 -->
               <div class="chart-canvas-wrapper">
-                <canvas id="chart-trend-canvas" height="230"></canvas>
+                <canvas id="chart-trend-canvas" height="240"></canvas>
               </div>
             </div>
           </div>
         </div>
 
         <!-- ==================================================================
-             4. 섹션: "언급키워드 + 긍부정" (사용자 직접 요구)
+             4. 섹션: "언급키워드 + 긍부정"
              ================================================================== -->
         <div class="dash-section sentiment-keywords-section">
           <div class="section-title-wrap">
             <h3 class="section-title">📊 언급키워드 + 긍부정 분석</h3>
-            <p class="section-sub">수집된 글로벌 VOC에서 고객들이 가장 많이 언급한 긍정·부정 키워드 Top 5와 전체 감성 비율입니다.</p>
+            <p class="section-sub">선택된 수집 사이트의 VOC에서 고객들이 가장 많이 언급한 긍정·부정 키워드 Top 5와 감성 비율입니다.</p>
           </div>
 
           <div class="sk-layout-grid">
@@ -852,12 +921,12 @@ const ResultsView = {
         </div>
 
         <!-- ==================================================================
-             5. 섹션: "채널별 반응" - 수집 채널별 비교 (사용자 직접 요구)
+             5. 섹션: "채널별 반응" - 수집 채널별 비교 (커뮤니티 vs 제품리뷰)
              ================================================================== -->
         <div class="dash-section channel-reaction-section">
           <div class="section-title-wrap">
             <h3 class="section-title">🌐 채널별 반응 비교 (커뮤니티 vs 제품리뷰)</h3>
-            <p class="section-sub">비정형 고객 토론 채널(커뮤니티)과 정형 구매 평가 채널(제품리뷰) 간 반응 특성을 교차 분석합니다.</p>
+            <p class="section-sub">커뮤니티(Community/Forum)와 제품리뷰(E-commerce/Tech Review/Price Comparison) 간의 고객 반응 특성입니다.</p>
           </div>
 
           <div class="channel-compare-grid">
@@ -876,7 +945,6 @@ const ResultsView = {
                 </div>
               </div>
 
-              <!-- 감성 스펙트럼 미니 바 -->
               <div class="ch-sentiment-mini-bar">
                 <div class="seg-pos" style="width: ${channelComp.community.posRate}%;" title="긍정 ${channelComp.community.posRate}%"></div>
                 <div class="seg-neu" style="width: ${channelComp.community.neuRate}%;" title="중립 ${channelComp.community.neuRate}%"></div>
@@ -888,18 +956,15 @@ const ResultsView = {
                 <span class="lbl-neg">부정 ${channelComp.community.negRate}%</span>
               </div>
 
-              <!-- 주요 담론 -->
               <div class="ch-discourse-box">
                 <div class="ch-sec-label">주요 논의 및 반응 성향:</div>
                 <p class="ch-sec-desc">${channelComp.community.discourseSummary}</p>
               </div>
 
-              <!-- 대표 키워드 태그 -->
               <div class="ch-tags-row">
                 ${channelComp.community.keyTags.map(t => `<span class="ch-tag">${t}</span>`).join('')}
               </div>
 
-              <!-- 대표 VOC 인용문 -->
               <div class="ch-quote-box">
                 <div class="quote-icon">“</div>
                 <div class="quote-text">${channelComp.community.representativeQuote}</div>
@@ -921,7 +986,6 @@ const ResultsView = {
                 </div>
               </div>
 
-              <!-- 감성 스펙트럼 미니 바 -->
               <div class="ch-sentiment-mini-bar">
                 <div class="seg-pos" style="width: ${channelComp.reviews.posRate}%;" title="긍정 ${channelComp.reviews.posRate}%"></div>
                 <div class="seg-neu" style="width: ${channelComp.reviews.neuRate}%;" title="중립 ${channelComp.reviews.neuRate}%"></div>
@@ -933,18 +997,15 @@ const ResultsView = {
                 <span class="lbl-neg">부정 ${channelComp.reviews.negRate}%</span>
               </div>
 
-              <!-- 주요 담론 -->
               <div class="ch-discourse-box">
                 <div class="ch-sec-label">주요 논의 및 반응 성향:</div>
                 <p class="ch-sec-desc">${channelComp.reviews.discourseSummary}</p>
               </div>
 
-              <!-- 대표 키워드 태그 -->
               <div class="ch-tags-row">
                 ${channelComp.reviews.keyTags.map(t => `<span class="ch-tag">${t}</span>`).join('')}
               </div>
 
-              <!-- 대표 VOC 인용문 -->
               <div class="ch-quote-box">
                 <div class="quote-icon">“</div>
                 <div class="quote-text">${channelComp.reviews.representativeQuote}</div>
@@ -954,15 +1015,14 @@ const ResultsView = {
         </div>
 
         <!-- ==================================================================
-             6. 섹션: 수집된 상세 VOC 원문 데이터 및 내보내기
+             6. 섹션: 상세 VOC 원문 데이터 및 내보내기
              ================================================================== -->
         <div class="dash-section voc-data-section" id="section-voc-raw-list">
           <div class="section-title-wrap section-title-flex">
             <div>
               <h3 class="section-title">📋 수집 상세 VOC 및 데이터 내보내기</h3>
-              <p class="section-sub">AI 분석의 기초가 된 개별 고객 반응 원문과 감성 태그를 확인하고 엑셀/CSV로 다운로드합니다.</p>
+              <p class="section-sub">선택된 수집 사이트의 개별 고객 반응 원문과 감성 태그를 확인하고 엑셀/CSV로 다운로드합니다.</p>
             </div>
-            <!-- 내보내기 버튼들 -->
             <div class="export-actions-wrap">
               <button type="button" class="btn btn-primary btn-sm btn-export-excel" onclick="ResultsView.executeDownload('xlsx')">
                 📥 분석 리포트 Excel (.xlsx)
@@ -1039,7 +1099,6 @@ const ResultsView = {
       </div>
     `;
 
-    // 비동기로 Chart.js 차트 렌더링
     setTimeout(() => {
       this.renderCharts();
     }, 50);

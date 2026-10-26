@@ -155,10 +155,13 @@ const MockData = {
   },
 
   /**
-   * 대시보드 시각화용 통합 인텔리전스 분석 지표 생성
-   * - 키워드 및 선택된 기간/채널에 맞춰 동적 집계치 제공
+   * 대시보드 시각화용 사이트별 인텔리전스 분석 지표 생성
+   * - 채널 분류 규칙:
+   *   * Community/Forum -> 커뮤니티
+   *   * E-commerce, Tech Review, Price Comparison -> 제품리뷰
+   * - 실제 수집된 사이트명 단위(Reddit, Best Buy US, AVS Forum, RTINGS.com, Home Depot)로 집계
    */
-  getDashboardAnalytics(keyword = 'LG 워시콤보', period = '1m', channel = 'all') {
+  getDashboardAnalytics(keyword = 'LG 워시콤보', period = '1m', channel = 'all', excludedSites = new Set(), excludedKeywords = []) {
     const isWashCombo = !keyword || keyword.includes('워시') || keyword.includes('세탁') || keyword.includes('콤보') || keyword.includes('wash');
     
     // 기간별 스케일 계수
@@ -183,57 +186,110 @@ const MockData = {
       dateRangeText = '2025-10-26 ~ 2026-10-25';
     }
 
-    // 채널 필터에 따른 비중 조정
-    let commRatio = 0.71;
-    let revRatio = 0.29;
-    if (channel === 'community') {
-      commRatio = 1.0;
-      revRatio = 0.0;
-    } else if (channel === 'reviews') {
-      commRatio = 0.0;
-      revRatio = 1.0;
-    }
-
-    const baseTotal = Math.round(1746 * scale);
-    const commTotal = Math.round(baseTotal * commRatio);
-    const revTotal = Math.round(baseTotal * revRatio);
-    const activeTotal = commTotal + revTotal;
-
-    // 시계열 추이 데이터 (15개 포인트)
-    const baseCommCurve = [35, 42, 68, 71, 48, 62, 63, 82, 115, 68, 55, 45, 63, 56, 32];
-    const baseRevCurve = [8, 12, 10, 8, 12, 11, 10, 15, 13, 11, 14, 12, 16, 12, 10];
-
+    // 15개 시계열 일자 라벨
     const labels = [
       '9월 26일', '9월 28일', '9월 30일', '10월 2일', '10월 5일', 
       '10월 7일', '10월 9일', '10월 11일', '10월 13일', '10월 15일', 
       '10월 17일', '10월 19일', '10월 21일', '10월 23일', '10월 25일'
     ];
 
-    const commData = baseCommCurve.map(v => Math.round(v * scale * (commRatio > 0 ? 1 : 0)));
-    const revData = baseRevCurve.map(v => Math.round(v * scale * (revRatio > 0 ? 1 : 0)));
-    const totalData = commData.map((v, i) => v + revData[i]);
-
-    // 피크일 계산
-    let maxIdx = 8; // 10월 13일
-    let maxCount = totalData[maxIdx] || 128;
-    totalData.forEach((v, idx) => {
-      if (v > maxCount) {
-        maxCount = v;
-        maxIdx = idx;
+    // 실제 수집 사이트 5종 정의 (지정된 채널 분류 적용)
+    // Community/Forum -> 커뮤니티
+    // E-commerce, Tech Review, Price Comparison -> 제품리뷰
+    const rawSiteConfigs = [
+      {
+        siteId: 'reddit',
+        siteName: 'Reddit',
+        categoryOrigin: 'Community/Forum',
+        channelType: '커뮤니티',
+        color: '#ff4500', // Reddit 오렌지
+        baseCurve: [24, 28, 45, 48, 32, 42, 43, 55, 78, 46, 38, 30, 42, 38, 22]
+      },
+      {
+        siteId: 'bestbuy',
+        siteName: 'Best Buy US',
+        categoryOrigin: 'E-commerce',
+        channelType: '제품리뷰',
+        color: '#0046be', // Best Buy 블루
+        baseCurve: [6, 9, 8, 6, 9, 8, 8, 12, 10, 8, 11, 9, 12, 9, 7]
+      },
+      {
+        siteId: 'avsforum',
+        siteName: 'AVS Forum',
+        categoryOrigin: 'Community/Forum',
+        channelType: '커뮤니티',
+        color: '#10b981', // 에메랄드 그린
+        baseCurve: [11, 14, 23, 23, 16, 20, 20, 27, 37, 22, 17, 15, 21, 18, 10]
+      },
+      {
+        siteId: 'rtings',
+        siteName: 'RTINGS.com',
+        categoryOrigin: 'Tech Review',
+        channelType: '제품리뷰',
+        color: '#8b5cf6', // 퍼플
+        baseCurve: [2, 3, 2, 2, 3, 3, 2, 3, 3, 3, 3, 3, 4, 3, 3]
+      },
+      {
+        siteId: 'homedepot',
+        siteName: 'Home Depot',
+        categoryOrigin: 'E-commerce',
+        channelType: '제품리뷰',
+        color: '#f97316', // 오렌지
+        baseCurve: [1, 2, 2, 1, 2, 1, 1, 2, 2, 2, 2, 2, 2, 2, 1]
       }
+    ];
+
+    // 채널 필터 적용 (all / community / reviews)
+    let siteConfigs = rawSiteConfigs.filter(s => {
+      if (channel === 'community') return s.channelType === '커뮤니티';
+      if (channel === 'reviews') return s.channelType === '제품리뷰';
+      return true;
     });
+
+    // 사이트별 집계 및 시계열 계산
+    const sites = siteConfigs.map(cfg => {
+      const isExcluded = excludedSites && excludedSites.has(cfg.siteName);
+      const scaledCurve = cfg.baseCurve.map(v => Math.round(v * scale));
+      const totalSiteMentions = scaledCurve.reduce((sum, v) => sum + v, 0);
+
+      return {
+        ...cfg,
+        isExcluded: !!isExcluded,
+        trendData: scaledCurve,
+        count: totalSiteMentions
+      };
+    });
+
+    // 제외되지 않고 활성화된 사이트 기준 전체 합산
+    const activeSites = sites.filter(s => !s.isExcluded);
+    const activeTotal = activeSites.reduce((sum, s) => sum + s.count, 0);
+
+    // 전체 활성 사이트 합계 시계열
+    const totalTrendData = labels.map((_, idx) => {
+      return activeSites.reduce((sum, s) => sum + (s.trendData[idx] || 0), 0);
+    });
+
+    // 각 사이트 점유율 계산
+    sites.forEach(s => {
+      s.sharePercent = activeTotal > 0 ? ((s.count / activeTotal) * 100).toFixed(1) : 0;
+    });
+
+    // 최다 언급 사이트 선정 (활성 사이트 중)
+    let topSite = activeSites.length > 0 
+      ? activeSites.reduce((max, s) => (s.count > max.count ? s : max), activeSites[0])
+      : { siteName: '데이터 없음', channelType: '-', count: 0, sharePercent: '0' };
 
     const dailyAvg = Math.max(1, Math.round(activeTotal / 30));
 
-    // 긍정 / 중립 / 부정 비율
+    // 감성 집계 (68.4% 긍정, 15.4% 중립, 16.2% 부정)
     const posRate = 68.4;
     const neuRate = 15.4;
     const negRate = 16.2;
     const posCount = Math.round(activeTotal * (posRate / 100));
     const neuCount = Math.round(activeTotal * (neuRate / 100));
-    const negCount = activeTotal - posCount - neuCount;
+    const negCount = Math.max(0, activeTotal - posCount - neuCount);
 
-    // 긍정 키워드 1~5순위 & 부정 키워드 1~5순위
+    // 긍정 / 부정 키워드 1~5위
     const positiveKeywords = isWashCombo ? [
       { rank: 1, keyword: '올인원 세탁건조', count: Math.round(382 * scale), percent: 32, desc: '의류 이동 없이 한 번에 건조까지 끝나는 압도적 편의성' },
       { rank: 2, keyword: '중앙 조작부(센터컨트롤)', count: Math.round(298 * scale), percent: 25, desc: '키가 작아도 손쉬운 중간 조작부의 인체공학적 설계' },
@@ -263,7 +319,7 @@ const MockData = {
     ];
 
     // 전체 언급 키워드 태그 클러스터
-    const allKeywords = isWashCombo ? [
+    let allKeywords = isWashCombo ? [
       { tag: '#올인원편의성', sentiment: 'pos', count: 382 },
       { tag: '#센터컨트롤', sentiment: 'pos', count: 298 },
       { tag: '#세탁실공간절약', sentiment: 'pos', count: 245 },
@@ -294,13 +350,25 @@ const MockData = {
       { tag: '#돌비비전', sentiment: 'pos', count: 140 }
     ];
 
+    // 제외 키워드가 설정된 경우 키워드 클러스터에서 필터링
+    if (excludedKeywords && excludedKeywords.length > 0) {
+      allKeywords = allKeywords.filter(k => {
+        return !excludedKeywords.some(ex => k.tag.toLowerCase().includes(ex.toLowerCase()));
+      });
+    }
+
     // 채널별 반응 비교 요약
+    const commTotal = sites.filter(s => s.channelType === '커뮤니티' && !s.isExcluded).reduce((sum, s) => sum + s.count, 0);
+    const revTotal = sites.filter(s => s.channelType === '제품리뷰' && !s.isExcluded).reduce((sum, s) => sum + s.count, 0);
+    const commShare = activeTotal > 0 ? ((commTotal / activeTotal) * 100).toFixed(1) : 0;
+    const revShare = activeTotal > 0 ? ((revTotal / activeTotal) * 100).toFixed(1) : 0;
+
     const channelComparison = {
       community: {
         channelName: '커뮤니티 (Community)',
-        siteExamples: 'Reddit r/Appliances, AVS Forum, Clien, Wykop',
+        siteExamples: 'Reddit, AVS Forum (Community/Forum 분류)',
         totalCount: commTotal,
-        sharePercent: commRatio > 0 ? (channel === 'community' ? 100 : 71.0) : 0,
+        sharePercent: commShare,
         posRate: 64.2,
         neuRate: 16.0,
         negRate: 19.8,
@@ -312,9 +380,9 @@ const MockData = {
       },
       reviews: {
         channelName: '제품리뷰 (Product Reviews)',
-        siteExamples: 'Best Buy US, RTINGS, Home Depot, Danawa',
+        siteExamples: 'Best Buy, RTINGS, Home Depot (E-commerce / Tech Review 분류)',
         totalCount: revTotal,
-        sharePercent: revRatio > 0 ? (channel === 'reviews' ? 100 : 29.0) : 0,
+        sharePercent: revShare,
         posRate: 78.5,
         neuRate: 12.0,
         negRate: 9.5,
@@ -332,25 +400,18 @@ const MockData = {
       channel,
       periodDaysText,
       dateRangeText,
+      sites, // 수집 사이트 목록 및 시계열
       kpi: {
         totalCount: activeTotal,
-        peakDate: labels[maxIdx] || '10월 13일',
-        peakCount: maxCount,
         dailyAvg,
-        topChannel: commRatio >= revRatio ? '커뮤니티' : '제품리뷰',
-        topChannelShare: commRatio >= revRatio ? '71%' : '100%',
+        topSite, // 최다 언급 사이트 객체 (피크일 대신 사용)
         posRate,
         neuRate,
         negRate
       },
       trend: {
         labels,
-        commData,
-        revData,
-        totalData,
-        peakIdx: maxIdx,
-        peakLabel: labels[maxIdx] || '10월 13일',
-        peakCount: maxCount
+        totalTrendData
       },
       sentiment: {
         posCount,

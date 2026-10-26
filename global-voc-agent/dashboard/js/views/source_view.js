@@ -37,6 +37,16 @@ const SourceView = {
 
     const channelEl = document.getElementById('select-channel');
     if (channelEl) this.state.channel = channelEl.value || 'all';
+
+    const excludeEl = document.getElementById('input-explore-exclude');
+    if (excludeEl && excludeEl.value) {
+      this.state.excludedKeywords = excludeEl.value
+        .split(',')
+        .map(w => w.trim().replace(/^#/, ''))
+        .filter(w => w.length > 0);
+    } else {
+      this.state.excludedKeywords = [];
+    }
   },
 
   bindEvents() {
@@ -86,6 +96,17 @@ const SourceView = {
         this.state.channel = e.target.value;
       });
     }
+
+    // 6. 제외 키워드 입력 필드 엔터키
+    const excludeInput = document.getElementById('input-explore-exclude');
+    if (excludeInput) {
+      excludeInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          this.startCollectionAndAnalysis();
+        }
+      });
+    }
   },
 
   setPresetKeyword(keyword) {
@@ -104,6 +125,7 @@ const SourceView = {
     const keyword = this.state.keyword ? this.state.keyword.trim() : 'LG 워시콤보';
     const period = this.state.period || '1m';
     const channel = this.state.channel || 'all';
+    const excludedKeywords = this.state.excludedKeywords || [];
 
     // [수집 결과] 탭으로 전환하여 분석 대시보드 실행
     App.navigateToTab('tab-results', {
@@ -112,6 +134,7 @@ const SourceView = {
       product: keyword,
       period: period,
       channel: channel,
+      excludedKeywords: excludedKeywords,
       autoStart: true
     });
   },

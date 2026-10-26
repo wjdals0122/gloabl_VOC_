@@ -4939,9 +4939,80 @@ input:checked + .slider:before {
   gap: 6px;
 }
 
-.context-purpose-desc {
-  font-size: 13.5px;
-  color: var(--text-body);
+/* 제외 키워드 퀵 바 */
+.context-exclude-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.exclude-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.exclude-tag-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.empty-exclude-text {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.exclude-chip {
+  background: rgba(239, 68, 68, 0.08);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 8px 3px 10px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-del-exclude {
+  background: transparent;
+  border: none;
+  color: #dc2626;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.btn-del-exclude:hover {
+  color: #991b1b;
+}
+
+.exclude-input-box {
+  display: inline-flex;
+}
+
+.input-exclude-inline {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-medium);
+  border-radius: 14px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--text-main);
+  width: 140px;
+  transition: all 0.2s ease;
+}
+
+.input-exclude-inline:focus {
+  outline: none;
+  border-color: #ef4444;
+  width: 170px;
 }
 
 .context-right-controls {
@@ -5008,21 +5079,21 @@ input:checked + .slider:before {
 }
 
 /* -----------------------------------------------------------------------------
-   3. KPI 메트릭 카드 5종 (가로 그리드)
+   3. KPI 메트릭 카드 4종 (피크일 삭제 및 최다 사이트명 적용)
    ----------------------------------------------------------------------------- */
-.kpi-metrics-grid {
+.kpi-metrics-grid.kpi-grid-4cols {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
 }
 
-@media (max-width: 1200px) {
-  .kpi-metrics-grid {
-    grid-template-columns: repeat(3, 1fr);
+@media (max-width: 1024px) {
+  .kpi-metrics-grid.kpi-grid-4cols {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
-@media (max-width: 768px) {
-  .kpi-metrics-grid {
+@media (max-width: 600px) {
+  .kpi-metrics-grid.kpi-grid-4cols {
     grid-template-columns: 1fr;
   }
 }
@@ -5087,8 +5158,21 @@ input:checked + .slider:before {
   margin-left: 2px;
 }
 
-.val-peak {
+.val-site-name {
   font-size: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.badge-ch-type {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(165, 0, 52, 0.08);
+  color: #a50034;
 }
 
 .val-pos {
@@ -5104,16 +5188,6 @@ input:checked + .slider:before {
 .trend-up {
   color: #10b981;
   font-weight: 700;
-}
-
-.kpi-sparkline {
-  margin-top: 8px;
-  height: 22px;
-}
-
-.spark-svg {
-  width: 100%;
-  height: 100%;
 }
 
 .kpi-minibars {
@@ -5164,7 +5238,7 @@ input:checked + .slider:before {
 }
 
 /* -----------------------------------------------------------------------------
-   4. 섹션: "추이" - 검색한 키워드 언급량 추이 (시계열 차트)
+   4. 섹션: "추이" - 수집 사이트별 언급량 & 사이트 선택/제외
    ----------------------------------------------------------------------------- */
 .dash-section {
   background: var(--bg-surface);
@@ -5176,11 +5250,11 @@ input:checked + .slider:before {
 
 .trend-layout-grid {
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: 290px 1fr;
   gap: 24px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 960px) {
   .trend-layout-grid {
     grid-template-columns: 1fr;
   }
@@ -5190,7 +5264,7 @@ input:checked + .slider:before {
   background: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
-  padding: 18px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -5198,78 +5272,125 @@ input:checked + .slider:before {
 
 .channel-vol-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .box-title {
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 700;
   color: var(--text-heading);
+  margin-bottom: 2px;
 }
 
-.help-icon {
-  font-size: 11px;
+.box-subtitle {
+  font-size: 11.5px;
   color: var(--text-muted);
-  cursor: help;
 }
 
-.channel-vol-items {
+.btn-link-sm {
+  background: transparent;
+  border: none;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #a50034;
+  cursor: pointer;
+  padding: 0;
+}
+
+.btn-link-sm:hover {
+  text-decoration: underline;
+}
+
+.site-toggle-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-}
-
-.vol-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  background: var(--bg-surface);
-  border-radius: 8px;
-  border: 1px solid var(--border-subtle);
-}
-
-.vol-label {
-  display: flex;
-  align-items: center;
   gap: 8px;
 }
 
-.dot-legend {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
+.site-toggle-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 12px;
+  background: var(--bg-surface);
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
 }
 
-.dot-comm { background: #84cc16; }
-.dot-rev { background: #f59e0b; }
+.site-toggle-item:hover {
+  border-color: var(--border-medium);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+}
 
-.vol-label .name {
+.site-toggle-item.is-disabled {
+  opacity: 0.45;
+  background: var(--bg-surface-elevated);
+}
+
+.site-checkbox {
+  cursor: pointer;
+  accent-color: #a50034;
+  width: 15px;
+  height: 15px;
+}
+
+.site-info-text {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.site-name {
   font-size: 13px;
-  font-weight: 600;
-  color: var(--text-main);
-}
-
-.vol-figure strong {
-  font-size: 14px;
   font-weight: 700;
   color: var(--text-heading);
-  margin-right: 4px;
 }
 
-.vol-figure .pct {
-  font-size: 12px;
+.site-cat-tag {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.cat-comm {
+  background: rgba(132, 204, 22, 0.15);
+  color: #4d7c0f;
+}
+
+.cat-rev {
+  background: rgba(245, 158, 11, 0.15);
+  color: #b45309;
+}
+
+.site-vol-stat {
+  text-align: right;
+}
+
+.site-vol-stat strong {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-heading);
+  margin-right: 3px;
+}
+
+.site-vol-stat .pct {
+  font-size: 11.5px;
   color: var(--text-muted);
 }
 
 .trend-summary-notice {
-  margin-top: 18px;
-  font-size: 12px;
+  margin-top: 14px;
+  font-size: 11.5px;
   color: var(--text-muted);
-  line-height: 1.5;
-  padding-top: 12px;
+  line-height: 1.45;
+  padding-top: 10px;
   border-top: 1px dashed var(--border-subtle);
 }
 

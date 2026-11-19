@@ -3,6 +3,11 @@
 > 국가와 제품 키워드만 입력하면 현지 쇼핑몰·리뷰 사이트·커뮤니티·유튜브의 소비자 의견을 수집하고, 한국어 요약과 감정·의도·키워드·브랜드 분류까지 마친 데이터로 쌓는 AI 에이전트
 > **n8n(Docker) 워크플로우 백엔드**, **외부 AI·수집 API 연동**, **인터랙티브 대시보드**로 구성
 
+
+![Global VoC Lab 대시보드 사용 흐름](docs/images/demo.gif)
+
+> 대시보드 → 출처 탐색 → 수집 결과 → 정기 모니터링 → 감성 분석 → 추이 → 영상 VoC 순서로 실제 사용 흐름을 녹화한 화면 (데모 데이터)
+
 ---
 
 ## 1. 한눈에 보기
@@ -433,14 +438,43 @@ flowchart LR
 
 ## 7. 대시보드
 
-- **수집 화면**: 국가·키워드·기간을 입력하고 출처를 선택해서 수집 시작
-- **결과 화면**: 사이트별 수집 내용, 브랜드·감정·의도별 집계와 키워드 분포
-- **정기 모니터링**: 지정한 국가·주력 제품의 VoC를 매주 수집하고, 신규 VoC나 부정 이슈가 생겼을 때만 팀 채널로 변동 요약 알림
-- **결과 내보내기**: 수집 결과 CSV와 출처 목록 CSV 다운로드, 브라우저에 이력 보관
-- **진행 상태 표시**
-  - `요청 전` / `요청 처리 중` / `응답 수신 완료` / `요청 실패` 4가지로만 표시 (가짜 진행률 없음)
-  - HTTP 200 수신을 "리뷰 추출 성공"으로 단정하지 않고 "원문 수신됨"으로 구분
-  - 응답에 없는 값은 추정하지 않고 `미확인`으로 표시
+- 파일: [`global-voc-agent/dashboard/overview.html`](global-voc-agent/dashboard/overview.html)
+  - HTML 파일 하나로 동작하고 외부 라이브러리를 쓰지 않음 (차트도 SVG로 직접 그림)
+  - 화면 전환은 해시 라우팅(`#/dashboard`, `#/monitor` 등)이라 새로고침해도 보던 화면이 유지됨
+  - 데이터 필드는 Supabase `global_voc_insights` 스키마와 같아서, 데모 데이터를 조회 결과로 바꾸면 그대로 연결됨
+
+### 7.1 화면 구성
+
+| 메뉴 | 주소 | 구성 |
+|---|---|---|
+| 대시보드 | `#/dashboard` | 채널별 수집 현황, 감성 요약, 주시 중인 불만 키워드, 최근 VoC, 정기 모니터링, 브랜드별 언급량, Top 키워드 |
+| 출처 탐색 | `#/discover` | 후보 탐색 → 출처 선택 → 선택 수집 3단계, 진행 상태 4단계, 수집 결과 CSV, API 요청·응답 미리보기 |
+| 수집 결과 | `#/results` | 전체 VoC 표, 검색·필터(출처·브랜드·감성·의도)·정렬·페이지, CSV 내보내기, 원문 상세 |
+| 정기 모니터링 | `#/monitor` | 모니터링 목록(켜기·끄기·추가), 12주 신규 VoC·부정 비율 추이, 알림 이력, 알림 메일 미리보기 |
+| 감성 분석 | `#/sentiment` | LG·경쟁사 비교 지표, 브랜드 × 불만 키워드 히트맵, 브랜드별 감성 비율, 채널별 글의 의도 |
+| 추이 | `#/trend` | 감성별 주간 수집량, 불만 키워드 추이 비교 |
+| 영상 VoC | `#/video` | 영상 목록, Gemini Flash 분석 결과(영상 유형·장점·불편 사항·구간별 핵심 발언 번역) |
+| 설정 | `#/settings` | n8n Webhook 주소, 데모 모드, 저장소 설정, API 키 관리 위치 |
+| 계정 | `#/account` | 외부 API별 사용량, 팀 구성 |
+
+### 7.2 화면
+
+| 대시보드 | VoC 상세 |
+|---|---|
+| ![대시보드](docs/images/01-dashboard.png) | ![VoC 상세](docs/images/02-voc-detail.png) |
+| **출처 탐색 · 선택 수집** | **수집 결과** |
+| ![출처 탐색](docs/images/03-discover.png) | ![수집 결과](docs/images/04-results.png) |
+| **정기 모니터링** | **감성 분석** |
+| ![정기 모니터링](docs/images/05-monitor.png) | ![감성 분석](docs/images/06-sentiment.png) |
+| **추이** | **영상 VoC** |
+| ![추이](docs/images/07-trend.png) | ![영상 VoC](docs/images/08-video.png) |
+
+### 7.3 표시 원칙
+- 진행 상태는 `요청 전` / `요청 처리 중` / `응답 수신 완료` / `요청 실패` 4가지로만 표시 (가짜 진행률 없음)
+- HTTP 200 수신을 "리뷰 추출 성공"으로 단정하지 않고 "원문 수신됨"으로 구분
+- 응답에 없는 값은 추정하지 않고 `미확인`으로 표시
+- 알림은 신규 VoC나 부정 이슈가 생겼을 때만 메일로 발송
+- 데모 데이터로 동작하는 화면에는 `데모 데이터` 표시, 실제 호출 대신 보내는 요청 내용을 `[시뮬레이션]`으로 안내
 
 ---
 
@@ -484,11 +518,14 @@ flowchart LR
 ├── test-scrape.js                      # n8n 없이 시트 3 로직을 실행하는 테스트 하네스
 ├── docker-compose.yml                  # n8n 컨테이너 실행 구성
 ├── .env.example                        # 컨테이너 환경변수 템플릿
+├── docs/images/                       # 대시보드 화면·사용 흐름 GIF
 └── global-voc-agent/
     ├── 01-architecture-and-api-spec.md # 대시보드 연동 API 규격서
     ├── global_voc_scraper_workflow.json# 일괄 수집(CSV) 워크플로우
     ├── server.js                       # 대시보드 정적 서빙 + Mock API
-    └── dashboard/                      # 수집 → 결과 조회 → 정기 모니터링 UI
+    └── dashboard/
+        ├── overview.html               # 통합 대시보드 (9개 화면)
+        └── index.html                  # 출처 선택형 수집 화면 (초기 버전)
 ```
 
 ---
@@ -516,9 +553,11 @@ curl -X POST http://localhost:5678/webhook/voc-crawler-start \
 ### 11.3 대시보드
 ```bash
 cd global-voc-agent
-node server.js        # http://localhost:3005
+node server.js
 ```
-- 외부 패키지 없이 Node.js 내장 모듈로 실행
+- 통합 대시보드: http://localhost:3005/overview.html
+- 특정 화면 바로 열기: http://localhost:3005/overview.html#/monitor
+- 외부 패키지 없이 Node.js 내장 모듈로 실행. 서버 없이 `overview.html`을 브라우저로 직접 열어도 동작
 - 설정 화면에서 n8n Webhook 주소를 지정하면 실제 모드로 동작
 
 ### 11.4 로컬 테스트

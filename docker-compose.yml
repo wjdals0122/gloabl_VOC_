@@ -1,0 +1,17 @@
+services:
+  n8n:
+    image: n8nio/n8n
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"                     # 대시보드 → n8n Webhook
+    environment:
+      - GENERIC_TIMEZONE=Asia/Seoul
+      - TZ=Asia/Seoul
+      - WEBHOOK_URL=http://localhost:5678/
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}   # Credentials 암호화 키 (.env로 주입)
+    volumes:
+      - n8n_data:/home/node/.n8n        # 워크플로우·Credentials·실행 이력 영속화
+
+volumes:
+  n8n_data:

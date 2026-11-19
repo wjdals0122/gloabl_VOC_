@@ -5,15 +5,105 @@
 
 ---
 
-## 1. 배경
+## 1. 한눈에 보기
 
-### 1.1 출발점
+| 영역 | 구현 내용 |
+|---|---|
+| **백엔드 워크플로우** | n8n으로 수집 → 분석 → 적재 파이프라인을 구성. 마스터 워크플로우가 채널별 하위 워크플로우를 호출하는 오케스트레이션 구조 |
+| **컨테이너 운영** | n8n을 Docker 컨테이너로 self-hosting. 볼륨으로 워크플로우·Credentials를 영속화하고, 환경변수로 설정 관리 |
+| **API 설계** | Webhook 기반 REST API 4종. 단일 일괄 처리 API를 출처 탐색 / 선택 수집의 2단계로 분리하고, 요청·응답 규격 문서와 Mock 서버를 함께 제공 |
+| **외부 API 연동** | OpenAI, Gemini, ScrapingAnt, Apify, Supabase 연동. 인증 방식, 타임아웃, 동시 요청 수를 API별로 설정 |
+| **분산 수집·장애 대응** | 재귀 크롤러의 종료 보장(깊이·방문 기록), 봇 차단 감지, 재시도와 대체 경로, 배치 처리 |
+| **데이터 모델링** | 채널이 달라도 하나의 VoC 스키마로 정규화하고, 대시보드 필터와 1:1로 대응하는 저장 스키마 설계 |
+| **보안** | 모든 API 키를 n8n Credentials와 환경변수로 격리. 저장소·프론트엔드·요청 본문에 키를 두지 않음 |
+| **AI 활용** | 용도별 LLM 선택(GPT-4o-mini / Gemini Flash)과 환각 차단 설계. AI 코딩 에이전트로 개발 |
+
+---
+
+## 2. 개발 환경과 기술 스택
+
+### 2.1 개발 환경
+
+| 구분 | 내용 |
+|---|---|
+| 실행 환경 | Docker 컨테이너 (n8n 공식 이미지 `n8nio/n8n`) |
+| 워크플로우 엔진 | n8n self-hosted (`localhost:5678`) |
+| 런타임 | Node.js (대시보드 서버, 로컬 테스트 하네스) |
+| 데이터베이스 | Supabase (PostgreSQL, 클라우드) |
+| 버전 관리 | Git, GitHub |
+| 개발 도구 | Google Antigravity (AI 코딩 에이전트) |
+
+### 2.2 기술 스택
+
+| 영역 | 사용 기술 |
+|---|---|
+| 워크플로우 백엔드 | n8n (Webhook, Code, Switch, Split in Batches, Execute Workflow, HTTP Request) |
+| 컨테이너 | Docker, Docker Compose |
+| AI | OpenAI GPT-4o-mini (검색어 생성·페이지 판정·분석), Google Gemini Flash (영상 분석), n8n LangChain 노드 |
+| 수집 | ScrapingAnt (헤드리스 브라우저 + 국가별 프록시), Apify Reddit Scraper, DuckDuckGo |
+| 저장 | Supabase (PostgreSQL) |
+| 대시보드 | Vanilla JS, Chart.js, Node.js 내장 `http` 서버 |
+| 언어 | JavaScript (n8n Code 노드, 대시보드, 테스트) |
+
+### 2.3 Docker 구성
+
+- **Docker를 쓴 이유**
+  - n8n을 외부 클라우드 서비스가 아니라 직접 운영하는 서버(self-hosted)로 띄워서, 워크플로우와 Credentials를 직접 통제
+  - OS와 상관없이 같은 n8n 버전·설정으로 실행되도록 실행 환경을 컨테이너로 고정
+  - 컨테이너를 지우고 다시 만들어도 워크플로우와 Credentials가 남도록 데이터를 볼륨으로 분리
+
+- **구성**
+
+```yaml
+# docker-compose.yml
+services:
+  n8n:
+    image: n8nio/n8n
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"                     # 대시보드 → n8n Webhook
+    environment:
+      - GENERIC_TIMEZONE=Asia/Seoul
+      - TZ=Asia/Seoul
+      - WEBHOOK_URL=http://localhost:5678/
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}   # Credentials 암호화 키 (.env로 주입)
+    volumes:
+      - n8n_data:/home/node/.n8n        # 워크플로우·Credentials·실행 이력 영속화
+
+volumes:
+  n8n_data:
+```
+
+| 항목 | 설정 | 목적 |
+|---|---|---|
+| 포트 | `5678:5678` | 대시보드와 외부 호출이 n8n Webhook에 접근 |
+| 볼륨 | `n8n_data:/home/node/.n8n` | 워크플로우, Credentials, 실행 이력을 컨테이너 밖에 보관 |
+| `N8N_ENCRYPTION_KEY` | `.env`로 주입 | Credentials 암호화 키를 고정해서, 컨테이너를 다시 만들어도 저장된 API 키를 복호화할 수 있게 함 |
+| `WEBHOOK_URL` | 외부 접근 주소 | n8n이 Webhook 주소를 만들 때 쓰는 기준 URL |
+| `restart` | `unless-stopped` | 재부팅이나 오류 후 자동 재시작 |
+| 시간대 | `Asia/Seoul` | 분석 시각(`analyzed_at`)과 스케줄 실행 기준 시각 통일 |
+
+- **운영 명령**
+
+```bash
+docker compose up -d                          # 실행
+docker compose logs -f n8n                    # 실행 로그 확인
+docker compose pull && docker compose up -d   # n8n 버전 업데이트 (볼륨 데이터 유지)
+docker compose down                           # 중지 (볼륨은 유지)
+```
+
+---
+
+## 3. 배경
+
+### 3.1 출발점
 - LG전자 트롬 워시콤보(히트펌프 세탁건조기)의 **폴란드 런칭 전략**을 세우는 과정에서 시작
 - 시장 전략의 근거로 현지 소비자의 실제 의견(VoC)이 필요했음
   - 수집 대상: 폴란드 가전 쇼핑몰, 가격비교·리뷰 사이트, 커뮤니티(Pepper.pl, Reddit), 유튜브 영상
 - 그런데 분석을 시작하기도 전에, 수집 단계에서 시간과 비용이 대부분 소진됨
 
-### 1.2 수집 과정에서 확인한 병목
+### 3.2 수집 과정에서 확인한 병목
 
 | 구분 | 병목 | 실제 상황 |
 |---|---|---|
@@ -24,7 +114,7 @@
 - 기존 절차: 사이트 접속 → 개별 수집 → 번역·정리 → 분석 → 결과 통합
 - 반복되는 비용: VPN 우회 비용, 번역 과정의 의미 손실, 수작업 취합
 
-### 1.3 해결 방향
+### 3.3 해결 방향
 
 | 병목 | 해결 방식 | 구현 위치 |
 |---|---|---|
@@ -38,7 +128,7 @@
   - VoC 확보 기간: 약 2주 → 약 10분
   - 국가 코드만 바꾸면 다른 거점 국가(US, KR, DE, UK 등)에 그대로 적용
 
-### 1.4 에이전트 역할 구성
+### 3.4 에이전트 역할 구성
 
 | 단계 | AI의 역할 | 사람이 하던 일 | 모델 |
 |---|---|---|---|
@@ -49,7 +139,7 @@
 
 ---
 
-## 2. 시스템 구성
+## 4. 시스템 구성
 
 ```mermaid
 flowchart LR
@@ -74,7 +164,7 @@ flowchart LR
     DB --> AL[주간 모니터링<br/>변동 알림]
 ```
 
-### 2.1 워크플로우 역할 분리
+### 4.1 워크플로우 역할 분리
 
 | 워크플로우 | 역할 | 주요 노드 |
 |---|---|---|
@@ -86,7 +176,7 @@ flowchart LR
 - 채널별 수집기를 하위 워크플로우로 분리해서, 채널을 추가하거나 바꿀 때 마스터 로직을 고치지 않는 구조
 - 모든 수집기는 같은 VoC 스키마로 반환하므로, 마스터 쪽에서는 채널을 구분하지 않고 취합
 
-### 2.2 AI 모델 선택
+### 4.2 AI 모델 선택
 
 | 용도 | 모델 | 설정 | 선택 이유 |
 |---|---|---|---|
@@ -103,9 +193,9 @@ flowchart LR
 
 ---
 
-## 3. 핵심 설계
+## 5. 핵심 설계
 
-### 3.1 재귀 크롤러: 끝나는 것이 보장되는 탐색
+### 5.1 재귀 크롤러: 끝나는 것이 보장되는 탐색
 - **종료 조건**
   - `MAX_DEPTH = 6` 비상 브레이크
   - 방문 URL 집합(`visited`)을 재귀 호출에 넘겨 같은 페이지를 다시 방문하지 않음
@@ -122,13 +212,13 @@ flowchart LR
 - **페이지 판정**: LLM이 각 페이지를 `PRODUCT` / `LIST` / `IRRELEVANT`로 분류하고, 다음 행동(리뷰 추출 또는 하위 링크 선택)을 결정
   - CATEGORY 모드에서는 특정 브랜드에 치우치지 않도록 여러 브랜드 제품을 골고루, 리뷰 수가 많은 제품부터 선택
 
-### 3.2 실패에 대비한 진입 경로
+### 5.2 실패에 대비한 진입 경로
 - 사이트마다 시작 경로를 3단계로 준비: **AI가 만든 사이트 검색 URL → 사이트 홈페이지 → DuckDuckGo `site:` 검색**
   - AI가 검색 URL 형식을 틀리게 만들어도(404, 빈 페이지) 다음 경로로 자동 전환
 - 봇 차단·수집 실패는 같은 깊이에서 최대 2회 재시도하고, 그래도 실패하면 다음 대체 경로로 이동
 - 재시도는 깊이를 늘리지 않아서 깊이 제한에 걸려 탐색이 끊기지 않음
 
-### 3.3 LLM 환각 차단
+### 5.3 LLM 환각 차단
 - **링크는 코드가 뽑고 LLM은 번호만 고름**
   - 페이지의 링크를 코드로 추출·정규화한 뒤 번호를 붙여 LLM에 전달 (최대 200개)
   - 프롬프트에서 "목록에 없는 링크나 URL은 만들지 말 것"을 강제하고, 응답도 번호로만 받음
@@ -139,7 +229,7 @@ flowchart LR
 - **검색 결과 페이지는 LLM 없이 처리**: DuckDuckGo 결과는 리다이렉트 파라미터(`uddg`)를 코드로 디코딩해 링크만 추출하고, 광고 링크는 제외
 - **수집 원문 보정**: ScrapingAnt 마크다운이 긴 URL 중간에 넣는 줄바꿈을 제거한 뒤 링크를 추출
 
-### 3.4 데이터 계약과 파이프라인
+### 5.4 데이터 계약과 파이프라인
 - **공통 VoC 스키마**: 채널과 상관없이 `voc_id`, `source_site`, `content_type`(REVIEW/POST/COMMENT), `parent_id`, `published_at` 형식으로 통일
   - Reddit은 게시글과 댓글을 분리하고 `parent_id`로 연결
   - 날짜는 Unix timestamp와 문자열을 모두 `YYYY-MM-DD`로 변환
@@ -148,7 +238,7 @@ flowchart LR
 - **병합 시 원본 우선**: LLM 결과는 `voc_id`로 원본에 결합하고, 분석에 실패한 항목도 기본값을 넣어 원본은 버리지 않음
 - **LLM 출력 방어 파싱**: 코드블록이나 설명문이 섞인 응답에서도 JSON 배열만 추출
 
-### 3.5 저장 스키마 (`global_voc_insights`)
+### 5.5 저장 스키마 (`global_voc_insights`)
 
 | 구분 | 필드 |
 |---|---|
@@ -167,9 +257,9 @@ flowchart LR
 
 ---
 
-## 4. API
+## 6. API
 
-### 4.1 구성
+### 6.1 구성
 
 | 구분 | Method · Path | 호출 주체 | 처리 |
 |---|---|---|---|
@@ -182,7 +272,7 @@ flowchart LR
 - 대시보드의 엔드포인트 주소는 `config.js`와 설정 화면에서 바꿀 수 있어서 로컬·서버 환경을 코드 수정 없이 전환
 - `server.js`는 출처 탐색·선택 수집과 같은 규격의 Mock 응답을 제공해서, 백엔드 없이도 프론트엔드를 개발·검증할 수 있음
 
-### 4.2 수집 실행 `POST /webhook/voc-crawler-start`
+### 6.2 수집 실행 `POST /webhook/voc-crawler-start`
 수집부터 분석·DB 적재까지 전체 파이프라인을 실행
 
 **Request**
@@ -235,7 +325,7 @@ flowchart LR
 ]
 ```
 
-### 4.3 출처 탐색 `POST /webhook/discover-voc-sources`
+### 6.3 출처 탐색 `POST /webhook/discover-voc-sources`
 수집하기 전에 후보 출처 목록을 받아서 사용자가 수집할 사이트를 고를 수 있게 함
 
 **Request**
@@ -273,7 +363,7 @@ flowchart LR
 | `category` | 출처 유형. 대시보드에서 유형 배지로 표시 |
 | `description` | 한 줄 설명. 값이 없으면 `null`로 보내고, 대시보드는 임의로 채우지 않고 "사이트 설명 미확인"으로 표시 |
 
-### 4.4 선택 수집 `POST /webhook/collect-selected-sources`
+### 6.4 선택 수집 `POST /webhook/collect-selected-sources`
 사용자가 고른 출처만 수집해서 CSV 파일로 반환
 
 **Request**
@@ -300,11 +390,11 @@ flowchart LR
 | `status_code` | 대상 사이트의 HTTP 응답 코드 |
 | `voc_content` | 수집한 원문 |
 
-### 4.5 일괄 수집 `POST /webhook/collect-global-voc`
+### 6.5 일괄 수집 `POST /webhook/collect-global-voc`
 - 요청 `{ country, product }` 하나로 출처 탐색과 스크래핑을 연속 실행
 - 결과는 `respondToWebhook` 노드에서 CSV 바이너리로 반환 (`Content-Disposition: attachment`)
 
-### 4.6 서버에서만 관리하는 값
+### 6.6 서버에서만 관리하는 값
 클라이언트는 다음 값을 보내지 않고, n8n 노드와 Credentials에서만 관리
 
 | 값 | 위치 |
@@ -314,7 +404,7 @@ flowchart LR
 | `extraction_type` (markdown) | ScrapingAnt 엔드포인트 |
 | 국가 코드 예외 매핑 (`UK` → `GB`) | ScrapingAnt 노드 표현식 |
 
-### 4.7 내부에서 호출하는 외부 API
+### 6.7 내부에서 호출하는 외부 API
 
 | API | 호출 | 인증 | 주요 설정 |
 |---|---|---|---|
@@ -327,7 +417,7 @@ flowchart LR
 - ScrapingAnt는 결과를 마크다운으로 받아서 HTML 파싱 없이 LLM에 바로 넣을 수 있게 함
 - Apify는 동기 실행 엔드포인트(`run-sync-get-dataset-items`)를 써서 별도 폴링 없이 한 번의 호출로 결과를 받음
 
-### 4.8 오류 처리 규칙
+### 6.8 오류 처리 규칙
 
 | 상황 | 처리 |
 |---|---|
@@ -341,7 +431,7 @@ flowchart LR
 
 ---
 
-## 5. 대시보드
+## 7. 대시보드
 
 - **수집 화면**: 국가·키워드·기간을 입력하고 출처를 선택해서 수집 시작
 - **결과 화면**: 사이트별 수집 내용, 브랜드·감정·의도별 집계와 키워드 분포
@@ -354,7 +444,7 @@ flowchart LR
 
 ---
 
-## 6. 보안
+## 8. 보안
 
 - **비밀 정보 격리**
   - 모든 외부 API 키는 n8n Credentials에 저장하고, 워크플로우 JSON에는 참조만 남김
@@ -364,7 +454,7 @@ flowchart LR
 
 ---
 
-## 7. 테스트와 검증
+## 9. 테스트와 검증
 
 - **n8n 밖에서 같은 로직 실행**: `test-scrape.js`
   - 워크플로우 JSON에서 Code 노드 소스를 그대로 읽어 Node.js에서 실행
@@ -379,20 +469,7 @@ flowchart LR
 
 ---
 
-## 8. 기술 스택
-
-| 영역 | 사용 기술 |
-|---|---|
-| 워크플로우 백엔드 | n8n (self-hosted, Docker) |
-| AI | OpenAI GPT-4o-mini (검색어 생성·페이지 판정·분석), Google Gemini Flash (영상 분석) |
-| 수집 | ScrapingAnt (헤드리스 브라우저 + 국가별 프록시), Apify Reddit Scraper, DuckDuckGo |
-| 저장 | Supabase (PostgreSQL) |
-| 대시보드 | Vanilla JS, Chart.js, Node.js 내장 `http` 서버 |
-| 개발 도구 | Google Antigravity (AI 코딩 에이전트) |
-
----
-
-## 9. 디렉터리 구조
+## 10. 디렉터리 구조
 
 ```
 .
@@ -405,6 +482,8 @@ flowchart LR
 ├── sheet3-page-prep.js                 # Code 노드: 페이지 정리·차단 감지·링크 추출
 ├── sheet3-result.js                    # Code 노드: 판정 결과 → 리뷰 / 다음 링크 / 재시도
 ├── test-scrape.js                      # n8n 없이 시트 3 로직을 실행하는 테스트 하네스
+├── docker-compose.yml                  # n8n 컨테이너 실행 구성
+├── .env.example                        # 컨테이너 환경변수 템플릿
 └── global-voc-agent/
     ├── 01-architecture-and-api-spec.md # 대시보드 연동 API 규격서
     ├── global_voc_scraper_workflow.json# 일괄 수집(CSV) 워크플로우
@@ -414,16 +493,11 @@ flowchart LR
 
 ---
 
-## 10. 실행 방법
+## 11. 실행 방법
 
-### 10.1 n8n 실행 (Docker)
-```bash
-docker volume create n8n_data
-docker run -d --name n8n -p 5678:5678 \
-  -v n8n_data:/home/node/.n8n \
-  -e GENERIC_TIMEZONE=Asia/Seoul \
-  n8nio/n8n
-```
+### 11.1 n8n 실행
+- `cp .env.example .env` 후 `N8N_ENCRYPTION_KEY` 입력
+- [2.3 Docker 구성](#23-docker-구성)의 `docker compose up -d`로 n8n 실행
 - `http://localhost:5678` 접속 → 워크플로우 JSON을 **Import from File**
 - Credentials 등록
   - OpenAI, Google Gemini
@@ -431,16 +505,15 @@ docker run -d --name n8n -p 5678:5678 \
   - Apify: Query Auth (`token`)
   - Supabase
 - 시트 1의 Execute Workflow 노드가 시트 2·3을 가리키는지 확인
-- 볼륨(`n8n_data`)에 워크플로우와 Credentials가 저장되어 컨테이너를 다시 만들어도 유지됨
 
-### 10.2 수집 실행
+### 11.2 수집 실행
 ```bash
 curl -X POST http://localhost:5678/webhook/voc-crawler-start \
   -H "Content-Type: application/json" \
   -d '{"country": "PL", "keyword": "세탁건조기"}'
 ```
 
-### 10.3 대시보드
+### 11.3 대시보드
 ```bash
 cd global-voc-agent
 node server.js        # http://localhost:3005
@@ -448,6 +521,6 @@ node server.js        # http://localhost:3005
 - 외부 패키지 없이 Node.js 내장 모듈로 실행
 - 설정 화면에서 n8n Webhook 주소를 지정하면 실제 모드로 동작
 
-### 10.4 로컬 테스트
+### 11.4 로컬 테스트
 - `test-scrape.js`는 시트 3 워크플로우를 `sheet3-recursive-crawler.json` 이름으로 읽음
 - `[시트 3] 재귀 크롤러 ….json`을 이 이름으로 복사한 뒤 실행

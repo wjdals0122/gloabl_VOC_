@@ -274,7 +274,7 @@ flowchart LR
 | 일괄 수집(CSV) | `POST /webhook/collect-global-voc` | 단건 스크립트, 내부 테스트 | 탐색부터 스크래핑까지 한 번에 실행하고 CSV 파일 반환 |
 
 - 모든 요청은 `Content-Type: application/json`
-- 대시보드의 엔드포인트 주소는 `config.js`와 설정 화면에서 바꿀 수 있어서 로컬·서버 환경을 코드 수정 없이 전환
+- 대시보드의 엔드포인트 주소는 설정 화면에서 바꿀 수 있어서 로컬·서버 환경을 코드 수정 없이 전환
 - `server.js`는 출처 탐색·선택 수집과 같은 규격의 Mock 응답을 제공해서, 백엔드 없이도 프론트엔드를 개발·검증할 수 있음
 
 ### 6.2 수집 실행 `POST /webhook/voc-crawler-start`
@@ -438,7 +438,7 @@ flowchart LR
 
 ## 7. 대시보드
 
-- 파일: [`global-voc-agent/dashboard/overview.html`](global-voc-agent/dashboard/overview.html)
+- 파일: [`global-voc-agent/dashboard/index.html`](global-voc-agent/dashboard/index.html)
   - HTML 파일 하나로 동작하고 외부 라이브러리를 쓰지 않음 (차트도 SVG로 직접 그림)
   - 화면 전환은 해시 라우팅(`#/dashboard`, `#/monitor` 등)이라 새로고침해도 보던 화면이 유지됨
   - 데이터 필드는 Supabase `global_voc_insights` 스키마와 같아서, 데모 데이터를 조회 결과로 바꾸면 그대로 연결됨
@@ -524,8 +524,7 @@ flowchart LR
     ├── global_voc_scraper_workflow.json# 일괄 수집(CSV) 워크플로우
     ├── server.js                       # 대시보드 정적 서빙 + Mock API
     └── dashboard/
-        ├── overview.html               # 통합 대시보드 (9개 화면)
-        └── index.html                  # 출처 선택형 수집 화면 (초기 버전)
+        └── index.html                  # 통합 대시보드 (9개 화면)
 ```
 
 ---
@@ -555,9 +554,9 @@ curl -X POST http://localhost:5678/webhook/voc-crawler-start \
 cd global-voc-agent
 node server.js
 ```
-- 통합 대시보드: http://localhost:3005/overview.html
-- 특정 화면 바로 열기: http://localhost:3005/overview.html#/monitor
-- 외부 패키지 없이 Node.js 내장 모듈로 실행. 서버 없이 `overview.html`을 브라우저로 직접 열어도 동작
+- 통합 대시보드: http://localhost:3005/
+- 특정 화면 바로 열기: http://localhost:3005/#/monitor
+- 외부 패키지 없이 Node.js 내장 모듈로 실행. 서버 없이 `index.html`을 브라우저로 직접 열어도 동작
 - 설정 화면에서 n8n Webhook 주소를 지정하면 실제 모드로 동작
 
 ### 11.4 로컬 테스트

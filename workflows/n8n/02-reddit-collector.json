@@ -33,12 +33,6 @@
         272,
         0
       ],
-      "credentials": {
-        "httpQueryAuth": {
-          "id": "ojBq1VrsjaZyxiUF",
-          "name": "token"
-        }
-      },
       "onError": "continueRegularOutput"
     },
     {
@@ -55,24 +49,7 @@
       ]
     }
   ],
-  "pinData": {
-    "Execute Workflow Trigger": [
-      {
-        "json": {
-          "url": "https://www.reddit.com/search/?q=pralka%20z%20suszark%C4%85",
-          "fallback_url": "",
-          "category": "Community/Forum",
-          "site_name": "Reddit",
-          "country": "PL",
-          "keyword": "pralka z suszarką",
-          "original_keyword": "세탁건조기"
-        },
-        "pairedItem": {
-          "item": 0
-        }
-      }
-    ]
-  },
+  "pinData": {},
   "connections": {
     "Execute Workflow Trigger": {
       "main": [
@@ -100,13 +77,10 @@
   "active": false,
   "settings": {
     "executionOrder": "v1",
-    "binaryMode": "separate"
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
   },
-  "versionId": "0d3c0634-57e6-4dcd-b465-4fc5f0d22f45",
-  "meta": {
-    "instanceId": "d03141eb250e7a977c1b8248ba83fa0d01dfabd4ff49fe0fd245066ddee8a4e9"
-  },
-  "nodeGroups": [],
-  "id": "Al0sVnnEROX8oG8o",
-  "tags": []
+  "nodeGroups": []
 }

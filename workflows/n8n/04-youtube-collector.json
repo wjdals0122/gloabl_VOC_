@@ -1,0 +1,153 @@
+{
+  "name": "[시트 4: YouTube 수집기]",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        2864,
+        496
+      ],
+      "id": "7604862c-58e0-4e32-8e78-7318d89b4281",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}&sp=EgIYAQ%253D%253D",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "en-US,en;q=0.9"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3088,
+        496
+      ],
+      "id": "14a07380-d8ec-4341-863c-2ee278c48db8",
+      "name": "HTTP Request (유튜브 4분 미만"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawData = $input.first().json.data || '';\nconst trigger = $('When Executed by Another Workflow').first().json || {};\n\nconst matches = [...String(rawData).matchAll(/\"videoId\":\"([a-zA-Z0-9_-]{11})\"/g)].map(m => m[1]);\nconst uniqueIds = [...new Set(matches)].slice(0, 5);\n\nreturn uniqueIds.map(id => ({\n  json: {\n    video_id: id,\n    video_url: `https://www.youtube.com/watch?v=${id}`,\n    keyword: trigger.keyword || '',\n    country: trigger.country || ''\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3312,
+        496
+      ],
+      "id": "fc7b9f42-b102-40b5-a1ec-2a1c9a27d44b",
+      "name": "Code (영상 URL 추출)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"file_data\": {\n            \"file_uri\": \"{{ $json.video_url }}\"\n          }\n        },\n        {\n          \"text\": \"이 유튜브 영상의 실제 음성(오디오)과 화면을 직접 분석해서 VOC를 추출해 줘. 자동자막에 의존하지 말고 실제 발화 내용과 화면 텍스트를 바탕으로 아래 내용을 상세히 정리해:\\n1. 영상 성격: (특정 가전 모델 리뷰 / 일상 속 가사·세탁 페인포인트 토로 / 일반 정보 및 구매 팁 중 무엇인지)\\n2. 언급된 브랜드명 및 상세 모델명 (없으면 General)\\n3. 언급된 제품 장점 또는 만족 포인트\\n4. 언급된 단점 또는 일상생활에서 겪는 구체적인 페인포인트(불편함)\\n5. 핵심 내용 3줄 요약\"\n        }\n      ]\n    }\n  ]\n}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3536,
+        496
+      ],
+      "id": "d34f2e1f-2082-433c-bfa2-dbe13405d6e1",
+      "name": "HTTP Request (Gemini 음성/영상 직접 분석)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputs = $input.all();\nconst videoItems = $('Code (영상 URL 추출)').all();\n\nconst out = [];\ninputs.forEach((item, idx) => {\n  const vInfo = videoItems[idx]?.json || {};\n  const parts = item.json?.candidates?.[0]?.content?.parts || [];\n  const summaryText = parts.map(p => p.text || '').join('\\n').trim();\n  if (summaryText.length <= 20) return;   // Gemini 실패/빈 응답은 건너뜀\n\n  out.push({\n    json: {\n      voc_id: `YT_${vInfo.video_id || idx}`,\n      source_site: 'YouTube',\n      site_name: 'YouTube',\n      category: 'Video/YouTube',\n      content_type: 'VIDEO',\n      content: summaryText,\n      parent_id: vInfo.video_url || '',\n      source_url: vInfo.video_url || '',\n      country: vInfo.country || '',\n      keyword: vInfo.keyword || '',\n      published_at: new Date().toISOString()\n    }\n  });\n});\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3760,
+        496
+      ],
+      "id": "8ff9fa00-9e68-4a30-878e-8dc07e6ea000",
+      "name": "VOC 스키마 변환"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request (유튜브 4분 미만",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request (유튜브 4분 미만": {
+      "main": [
+        [
+          {
+            "node": "Code (영상 URL 추출)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code (영상 URL 추출)": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request (Gemini 음성/영상 직접 분석)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request (Gemini 음성/영상 직접 분석)": {
+      "main": [
+        [
+          {
+            "node": "VOC 스키마 변환",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "nodeGroups": []
+}

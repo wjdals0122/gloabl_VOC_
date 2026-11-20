@@ -1,1 +1,12 @@
+# Runtime credentials; keep distributable examples.
 .env
+.env.*
+!.env.example
+
+# Dependencies, local state and generated diagnostics.
+node_modules/
+state/
+*.log
+test-scrape-result.md
+.DS_Store
+Thumbs.db

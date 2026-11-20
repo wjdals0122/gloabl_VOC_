@@ -68,12 +68,6 @@
         784,
         512
       ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "Lg11B4qLEPE8WIuM",
-          "name": "ScrapingAnt API"
-        }
-      },
       "onError": "continueRegularOutput"
     },
     {
@@ -186,51 +180,10 @@
       "position": [
         1216,
         720
-      ],
-      "credentials": {
-        "openAiApi": {
-          "id": "jf1lMAgW0IKdj3sM",
-          "name": "OpenAI account"
-        }
-      }
+      ]
     }
   ],
-  "pinData": {
-    "Execute Workflow Trigger": [
-      {
-        "json": {
-          "url": "https://www.ceneo.pl/166664539",
-          "depth": 4,
-          "root_domain": "ceneo.pl",
-          "keyword": "pralko-suszarka",
-          "original_keyword": "세탁건조기",
-          "category": "E-commerce",
-          "site_name": "Ceneo",
-          "country": "PL",
-          "search_mode": "CATEGORY",
-          "review_hops": 2,
-          "visited": [
-            "https://www.ceneo.pl/Szukaj/pralko-suszarka",
-            "https://www.ceneo.pl/Pralki",
-            "https://www.ceneo.pl/199905740",
-            "https://www.ceneo.pl/200006044",
-            "https://www.ceneo.pl/197233414",
-            "https://www.ceneo.pl/170194155",
-            "https://www.ceneo.pl/185541738",
-            "https://www.ceneo.pl/178846317",
-            "https://www.ceneo.pl/165618381",
-            "https://www.ceneo.pl/172381968",
-            "https://www.ceneo.pl/172408782",
-            "https://www.ceneo.pl/181020018",
-            "https://www.ceneo.pl/199269887"
-          ]
-        },
-        "pairedItem": {
-          "item": 0
-        }
-      }
-    ]
-  },
+  "pinData": {},
   "connections": {
     "Execute Workflow Trigger": {
       "main": [
@@ -332,16 +285,10 @@
       ]
     }
   },
-  "active": true,
+  "active": false,
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "b1c3bfc6-1570-4aa7-bf9c-b9fbd9e8bb57",
-  "meta": {
-    "instanceId": "d03141eb250e7a977c1b8248ba83fa0d01dfabd4ff49fe0fd245066ddee8a4e9"
-  },
-  "nodeGroups": [],
-  "id": "FqiEwjZju7pzXVgq",
-  "tags": []
+  "nodeGroups": []
 }

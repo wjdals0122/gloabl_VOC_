@@ -1,440 +1,260 @@
 # Global VoC Research Agent
 
-> 국가와 제품 키워드만 입력하면 현지 쇼핑몰·리뷰 사이트·커뮤니티·유튜브의 소비자 의견을 수집하고, 한국어 요약과 감정·의도·키워드·브랜드 분류까지 마친 데이터로 쌓는 AI 에이전트
-> **n8n(Docker) 워크플로우 백엔드**, **외부 AI·수집 API 연동**, **인터랙티브 대시보드**로 구성
+국가와 제품 키워드를 입력받아 해외 커뮤니티·쇼핑몰·YouTube에서 VOC를 수집하고, 한국어 비즈니스 인사이트로 정규화해 Supabase에 저장하는 **n8n 기반 수집·분석 파이프라인**입니다.
 
+배포 기준은 [`workflows/n8n`](workflows/n8n)의 4개 JSON입니다. 각 파일은 독립된 n8n 워크플로우이며, 마스터 컨트롤러가 채널별 수집기를 호출합니다. 워크플로우의 Code 노드가 실행 로직의 원본입니다.
 
-![Global VoC Lab 대시보드 사용 흐름](docs/images/demo.gif)
+## 1. 구성과 기술 스택
 
-> 대시보드 → 출처 탐색 → 수집 결과 → 정기 모니터링 → 감성 분석 → 추이 → 영상 VoC 순서로 실제 사용 흐름을 녹화한 화면 (데모 데이터)
+| 계층 | 구성 | 역할 |
+| --- | --- | --- |
+| 오케스트레이션 | n8n Webhook / Execute Workflow / Loop Over Items | 입력 정리, 채널 분기, 하위 워크플로우 실행, 분석 배치 순회 |
+| 커뮤니티 수집 | Apify `trudax~reddit-scraper-lite` | Reddit 본문과 댓글 수집 |
+| 쇼핑몰 수집 | ScrapingAnt Markdown API | 브라우저 렌더링과 국가별 프록시를 이용한 페이지 수집 |
+| 텍스트 분석 | OpenAI `gpt-4o-mini` | 현지어 검색 URL 생성, 페이지 판정, 리뷰 추출, VOC 인사이트 분석 |
+| 영상 분석 | Gemini `generateContent` API | YouTube URL을 전달해 영상·음성 기반 VOC 생성 |
+| 저장 | Supabase / PostgreSQL | `global_voc_insights`에 최종 VOC Insert |
+| 실행 환경 | Docker Compose | n8n 실행과 워크플로우·Credentials·실행 이력 영속화 |
 
----
+모델명과 API 경로는 JSON에 기록된 설정을 설명합니다. YouTube 수집기의 현재 모델 경로는 `gemini-3.8-flash:generateContent`이며, 사용 계정에서의 모델 제공 여부와 YouTube URL 지원은 실행 전에 확인해야 합니다. 검증된 n8n 버전 정보는 원본에 포함되어 있지 않습니다.
 
-## 1. 한눈에 보기
+## 2. 저장소 구조
 
-| 영역 | 구현 내용 |
-|---|---|
-| **백엔드 워크플로우** | n8n으로 수집 → 분석 → 적재 파이프라인을 구성. 마스터 워크플로우가 채널별 하위 워크플로우를 호출하는 오케스트레이션 구조 |
-| **컨테이너 운영** | n8n을 Docker 컨테이너로 self-hosting. 볼륨으로 워크플로우·Credentials를 영속화하고, 환경변수로 설정 관리 |
-| **API 설계** | Webhook 기반 REST API 4종. 단일 일괄 처리 API를 출처 탐색 / 선택 수집의 2단계로 분리하고, 요청·응답 규격 문서와 Mock 서버를 함께 제공 |
-| **외부 API 연동** | OpenAI, Gemini, ScrapingAnt, Apify, Supabase 연동. 인증 방식, 타임아웃, 동시 요청 수를 API별로 설정 |
-| **분산 수집·장애 대응** | 재귀 크롤러의 종료 보장(깊이·방문 기록), 봇 차단 감지, 재시도와 대체 경로, 배치 처리 |
-| **데이터 모델링** | 채널이 달라도 하나의 VoC 스키마로 정규화하고, 대시보드 필터와 1:1로 대응하는 저장 스키마 설계 |
-| **보안** | 모든 API 키를 n8n Credentials와 환경변수로 격리. 저장소·프론트엔드·요청 본문에 키를 두지 않음 |
-| **AI 활용** | 용도별 LLM 선택(GPT-4o-mini / Gemini Flash)과 환각 차단 설계. AI 코딩 에이전트로 개발 |
-
----
-
-## 2. 개발 환경과 기술 스택
-
-### 2.1 개발 환경
-
-| 구분 | 내용 |
-|---|---|
-| 실행 환경 | Docker 컨테이너 (n8n 공식 이미지 `n8nio/n8n`) |
-| 워크플로우 엔진 | n8n self-hosted (`localhost:5678`) |
-| 런타임 | Node.js (대시보드 서버, 로컬 테스트 하네스) |
-| 데이터베이스 | Supabase (PostgreSQL, 클라우드) |
-| 버전 관리 | Git, GitHub |
-| 개발 도구 | Google Antigravity (AI 코딩 에이전트) |
-
-### 2.2 기술 스택
-
-| 영역 | 사용 기술 |
-|---|---|
-| 워크플로우 백엔드 | n8n (Webhook, Code, Switch, Split in Batches, Execute Workflow, HTTP Request) |
-| 컨테이너 | Docker, Docker Compose |
-| AI | OpenAI GPT-4o-mini (검색어 생성·페이지 판정·분석), Google Gemini Flash (영상 분석), n8n LangChain 노드 |
-| 수집 | ScrapingAnt (헤드리스 브라우저 + 국가별 프록시), Apify Reddit Scraper, DuckDuckGo |
-| 저장 | Supabase (PostgreSQL) |
-| 대시보드 | Vanilla JS, Chart.js, Node.js 내장 `http` 서버 |
-| 언어 | JavaScript (n8n Code 노드, 대시보드, 테스트) |
-
-### 2.3 Docker 구성
-
-- **Docker를 쓴 이유**
-  - n8n을 외부 클라우드 서비스가 아니라 직접 운영하는 서버(self-hosted)로 띄워서, 워크플로우와 Credentials를 직접 통제
-  - OS와 상관없이 같은 n8n 버전·설정으로 실행되도록 실행 환경을 컨테이너로 고정
-  - 컨테이너를 지우고 다시 만들어도 워크플로우와 Credentials가 남도록 데이터를 볼륨으로 분리
-
-- **구성**
-
-```yaml
-# docker-compose.yml
-services:
-  n8n:
-    image: n8nio/n8n
-    container_name: n8n
-    restart: unless-stopped
-    ports:
-      - "5678:5678"                     # 대시보드 → n8n Webhook
-    environment:
-      - GENERIC_TIMEZONE=Asia/Seoul
-      - TZ=Asia/Seoul
-      - WEBHOOK_URL=http://localhost:5678/
-      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}   # Credentials 암호화 키 (.env로 주입)
-    volumes:
-      - n8n_data:/home/node/.n8n        # 워크플로우·Credentials·실행 이력 영속화
-
-volumes:
-  n8n_data:
+```text
+.
+├── workflows/
+│   └── n8n/
+│       ├── 01-master-controller.json       # Webhook → 수집 → AI 분석 → DB → 완료 메일
+│       ├── 02-reddit-collector.json        # Reddit 게시글·댓글 정규화
+│       ├── 03-recursive-web-crawler.json   # 쇼핑몰 탐색·리뷰 추출·재귀 호출
+│       └── 04-youtube-collector.json       # 영상 검색·Gemini 분석·VOC 변환
+├── infra/
+│   └── n8n/
+│       ├── docker-compose.yml             # n8n 컨테이너와 영속 볼륨
+│       └── .env.example                   # n8n 암호화 키 설정 예시
+├── docs/
+│   ├── ai-system-prompts.md               # AI 노드별 역할·입출력·작성 규칙
+│   ├── repository-layout.md               # 이전 경로와 새 경로, 정리 범위
+│   └── images/                            # 기존 대시보드 화면·데모 자료
+├── tools/
+│   └── validate-workflows.mjs             # JSON·연결·Code 노드 문법 정적 검사
+├── global-voc-agent/                      # 기존 대시보드·서버·연동 문서 보존
+├── .gitattributes
+├── .gitignore
+└── README.md
 ```
 
-| 항목 | 설정 | 목적 |
-|---|---|---|
-| 포트 | `5678:5678` | 대시보드와 외부 호출이 n8n Webhook에 접근 |
-| 볼륨 | `n8n_data:/home/node/.n8n` | 워크플로우, Credentials, 실행 이력을 컨테이너 밖에 보관 |
-| `N8N_ENCRYPTION_KEY` | `.env`로 주입 | Credentials 암호화 키를 고정해서, 컨테이너를 다시 만들어도 저장된 API 키를 복호화할 수 있게 함 |
-| `WEBHOOK_URL` | 외부 접근 주소 | n8n이 Webhook 주소를 만들 때 쓰는 기준 URL |
-| `restart` | `unless-stopped` | 재부팅이나 오류 후 자동 재시작 |
-| 시간대 | `Asia/Seoul` | 분석 시각(`analyzed_at`)과 스케줄 실행 기준 시각 통일 |
+`global-voc-agent/`와 대시보드 이미지의 기존 경로를 유지합니다. 이 폴더 안의 `global_voc_scraper_workflow.json`은 기존 대시보드 문서가 참조하는 레거시 자료이며, 신규 수집 파이프라인의 import 대상은 `workflows/n8n/`입니다.
 
-- **운영 명령**
-
-```bash
-docker compose up -d                          # 실행
-docker compose logs -f n8n                    # 실행 로그 확인
-docker compose pull && docker compose up -d   # n8n 버전 업데이트 (볼륨 데이터 유지)
-docker compose down                           # 중지 (볼륨은 유지)
-```
-
----
-
-## 3. 배경
-
-### 3.1 출발점
-- LG전자 트롬 워시콤보(히트펌프 세탁건조기)의 **폴란드 런칭 전략**을 세우는 과정에서 시작
-- 시장 전략의 근거로 현지 소비자의 실제 의견(VoC)이 필요했음
-  - 수집 대상: 폴란드 가전 쇼핑몰, 가격비교·리뷰 사이트, 커뮤니티(Pepper.pl, Reddit), 유튜브 영상
-- 그런데 분석을 시작하기도 전에, 수집 단계에서 시간과 비용이 대부분 소진됨
-
-### 3.2 수집 과정에서 확인한 병목
-
-| 구분 | 병목 | 실제 상황 |
-|---|---|---|
-| **ACCESS** | 해외 사이트 접속 제약 | 국내 IP로는 폴란드 커뮤니티와 가전 쇼핑몰 접속이 차단됨. 수집할 수 있었던 정보는 전체의 **10% 미만** |
-| **LANGUAGE** | 번역과 맥락 해석 부담 | 현지어 검색어를 직접 찾아야 하고, 자막 없는 영상은 내용을 확인하기 어려움. 단순 번역으로는 현지 표현의 뉘앙스와 구매 의도를 파악하기 어려움 |
-| **INTEGRATION** | 채널별 결과 분산 | 채널마다 데이터 형식이 달라 공통 기준으로 맞추고, 브랜드·제품별 비교를 위해 다시 취합하는 작업이 반복됨 |
-
-- 기존 절차: 사이트 접속 → 개별 수집 → 번역·정리 → 분석 → 결과 통합
-- 반복되는 비용: VPN 우회 비용, 번역 과정의 의미 손실, 수작업 취합
-
-### 3.3 해결 방향
-
-| 병목 | 해결 방식 | 구현 위치 |
-|---|---|---|
-| ACCESS | 대상 국가의 프록시와 헤드리스 브라우저로 접근 제한을 우회 | ScrapingAnt(`proxy_country`, residential) |
-| LANGUAGE | 현지어 검색어를 자동 생성하고, 텍스트와 영상 음성을 한국어로 요약 | GPT(검색어 생성·분석), Gemini Flash(영상) |
-| INTEGRATION | 모든 채널을 하나의 VoC 스키마로 정규화한 뒤 같은 기준으로 분류해 DB에 적재 | 수집 워크플로우별 정규화 → 배치 분석 → Supabase |
-
-- **국가와 제품 키워드만 입력하면** 수집부터 요약·분석·대시보드까지 하나의 흐름으로 처리
-  - 예: `PL` + `세탁건조기` → 현지어 검색어 `pralka z suszarką` → 현지 사이트 수집 → 한국어 인사이트
-- 효과
-  - VoC 확보 기간: 약 2주 → 약 10분
-  - 국가 코드만 바꾸면 다른 거점 국가(US, KR, DE, UK 등)에 그대로 적용
-
-### 3.4 에이전트 역할 구성
-
-| 단계 | AI의 역할 | 사람이 하던 일 | 모델 |
-|---|---|---|---|
-| AI 01 · 탐색 | 현지 소비자가 쓰는 제품명으로 바꾸고, 현지 쇼핑몰·리뷰 사이트·Reddit 등 수집 대상을 구성 | 국가별 검색어를 알아보고 조사할 사이트를 직접 찾음 | GPT-4o-mini |
-| AI 02 · 선별 | 페이지가 제품 상세·리뷰 / 제품 목록 / 무관한 페이지인지 판정하고, 리뷰를 추출하거나 다음 링크를 선택 | 사이트 안에서 제품 페이지와 리뷰 탭을 직접 찾아다님 | GPT-4o-mini |
-| AI 03 · 분석 | 한국어 요약, 긍·부정 키워드, 감정, 글의 의도, 브랜드·제품 정보를 공통 기준으로 정리 | 번역하고 핵심 의견을 읽어 브랜드별로 분류·비교 | GPT-4o-mini |
-| AI 04 · 영상 분석 | 자막 없이 영상의 음성과 화면을 분석해 영상 유형, 브랜드·모델명, 장점·불편 사항을 텍스트 VoC로 변환 | 현지어 영상을 직접 보고 기록·번역·요약 | Gemini Flash |
-
----
-
-## 4. 시스템 구성
+## 3. 처리 아키텍처
 
 ```mermaid
-flowchart LR
-    UI[Dashboard<br/>국가·키워드·기간 입력] -->|POST Webhook| S1
-
-    subgraph N8N[n8n on Docker]
-        S1[마스터 컨트롤러] -->|GPT| L1[현지어 키워드 +<br/>수집 대상 URL 생성]
-        L1 --> SW{채널 분기}
-        SW -->|Reddit| S2[Reddit 수집기<br/>Apify]
-        SW -->|쇼핑몰·리뷰 사이트| S3[재귀 크롤러<br/>ScrapingAnt + GPT]
-        S3 -->|next links| S3
-        YT[YouTube URL] --> S4[영상 분석<br/>Gemini Flash]
-        S2 --> AGG[VoC 취합·중복 제거<br/>15건 배치]
-        S3 --> AGG
-        S4 --> AGG
-        AGG -->|GPT| AI[요약·감정·의도·<br/>키워드·브랜드 분류]
-        AI --> MG[스키마 병합]
-    end
-
-    MG --> DB[(Supabase<br/>global_voc_insights)]
-    DB --> UI
-    DB --> AL[주간 모니터링<br/>변동 알림]
+flowchart TD
+    A[POST /webhook/voc-crawler-start] --> B[입력 정리 · 현지어 검색 URL 생성]
+    B --> C[출처 목록 순회]
+    C --> D{URL 채널 분기}
+    D -->|Reddit| E[02 Reddit · Apify]
+    D -->|일반 사이트| F[03 쇼핑몰 · ScrapingAnt · 재귀 탐색]
+    D -->|YouTube 선택 시| G[04 YouTube · Gemini]
+    E --> H[VOC 취합 · voc_id 중복 제거]
+    F --> H
+    G --> H
+    H --> I[15건 배치 · 원문당 앞 800자 분석]
+    I --> J[GPT 인사이트 추출]
+    J --> K[voc_id로 원문과 병합 · 브랜드 정규화]
+    K --> L[Supabase Insert]
+    L --> M[배치 순회 종료 후 SMTP 완료 메일]
 ```
 
-### 4.1 워크플로우 역할 분리
+### 3.1 마스터 컨트롤러
 
-| 워크플로우 | 역할 | 주요 노드 |
-|---|---|---|
-| **시트 1** 마스터 컨트롤러 | 요청 수신 → 수집 대상 생성 → 채널별 수집기 호출 → 배치 분석 → DB 적재 | Webhook, LLM Chain, Switch, Execute Workflow, Split in Batches, Supabase |
-| **시트 2** Reddit 수집기 | 게시글과 댓글을 한 번에 수집하고 VoC 스키마로 정규화 | HTTP Request(Apify), Code |
-| **시트 3** 재귀 크롤러 | 검색 결과 → 목록 → 상품 → 리뷰 페이지를 리뷰가 나올 때까지 재귀 탐색 | HTTP Request(ScrapingAnt), LLM Chain, Execute Workflow(자기 호출) |
-| **영상 분석** | 유튜브 영상의 음성·화면을 분석해 텍스트 VoC로 변환 | Gemini Flash |
+1. 입력의 `body` 또는 최상위 객체에서 `country`, `keyword`, `include_youtube`를 읽습니다.
+2. LLM이 국가 코드, 현지어 키워드와 출처별 검색 URL을 생성합니다. 프롬프트는 서로 다른 쇼핑몰 도메인 5개 이상과 Reddit 1개를 요청합니다. 실제 개수나 URL 유효성을 보장하는 검증 단계는 없습니다.
+3. `include_youtube`가 `true` 또는 문자열 `"true"`이면 YouTube 검색 URL을 추가합니다.
+4. URL 문자열에 `reddit.com`이 있으면 Reddit, `youtube.com`이 있으면 YouTube, 그 외에는 쇼핑몰 수집기로 전달합니다.
+5. `voc_id`와 `content`가 있는 결과를 취합하고, 같은 `voc_id`는 Map으로 합칩니다. 크롤링 로그 행은 분석 대상에서 제외합니다.
+6. 최대 15건씩 분석합니다. AI 입력에는 원문 앞 800자만 전달하고, DB 저장에는 원문 전체를 사용합니다.
+7. AI 결과를 `voc_id`로 결합하고 브랜드 표기와 경쟁사 목록을 정규화한 뒤 DB에 저장합니다.
 
-- 채널별 수집기를 하위 워크플로우로 분리해서, 채널을 추가하거나 바꿀 때 마스터 로직을 고치지 않는 구조
-- 모든 수집기는 같은 VoC 스키마로 반환하므로, 마스터 쪽에서는 채널을 구분하지 않고 취합
+### 3.2 Reddit 수집기
 
-### 4.2 AI 모델 선택
+Apify Actor를 동기 호출하고 중첩 댓글·개별 댓글을 공통 스키마로 변환합니다. 요청 설정은 `maxItems=30`, `maxPostCount=5`, `maxComments=15`, `sort=relevance`, `time=all`이며 HTTP 타임아웃은 180초입니다. 실제 반환량은 Actor 동작과 검색 결과에 따라 달라집니다.
 
-| 용도 | 모델 | 설정 | 선택 이유 |
-|---|---|---|---|
-| 현지어 검색어·수집 대상 생성 | GPT-4o-mini | temperature 0.2 | 정해진 JSON 형식으로 사이트 목록을 안정적으로 반환 |
-| 페이지 판정·리뷰 추출 | GPT-4o-mini | temperature **0.1** | 판정이 매번 같게 나와야 하므로 가장 낮게 설정 |
-| VoC 분석·한국어 요약 | GPT-4o-mini | temperature 0.2 | 대량 배치 처리에서 비용 대비 분류 품질 확보 |
-| 영상 분석 | **Gemini Flash** | | 아래 참고 |
+게시글은 `RD_POST_<id>`, 댓글은 `RD_CMT_<id>`로 식별합니다. 삭제·제거된 댓글을 제외하고 작성일은 가능한 경우 `YYYY-MM-DD`로 정규화합니다. 검색에는 현지어 키워드를 사용하며 국가별 게시글만 선별하는 별도 필터는 없습니다.
 
-- **영상만 Gemini Flash를 쓴 이유**
-  - 현지 소비자 리뷰 영상은 자막이 없는 경우가 많음
-  - 유튜브 자동 생성 자막(음성 인식)은 폴란드어 제품명·모델명을 정확하게 받아쓰지 못함
-  - Gemini는 영상의 음성을 직접 인식하고 화면까지 함께 이해하므로, 자막을 거치지 않고 영상에서 바로 VoC를 뽑을 수 있음
-  - 별도의 음성 인식(STT) 단계 없이 호출 한 번으로 끝나서 파이프라인이 단순해짐
+### 3.3 쇼핑몰 재귀 크롤러
 
----
+ScrapingAnt에서 받은 Markdown을 정리하고 링크 후보를 코드로 추출해 번호를 매깁니다. LLM은 페이지를 `PRODUCT`, `LIST`, `IRRELEVANT`로 판정하고 리뷰와 후속 링크를 반환합니다. 상품 설명과 실제 소비자 리뷰를 구분하도록 프롬프트를 구성했습니다.
 
-## 5. 핵심 설계
+| 제어 항목 | MODEL 모드 | CATEGORY 모드 |
+| --- | --- | --- |
+| 모드 선택 | 영문·숫자가 섞인 5자 이상 모델 토큰 감지 | 그 외 제품군 키워드 |
+| 재귀 깊이 | `depth > 6`이면 종료 | 동일 |
+| 단계당 입력 페이지 상한 | 10 | 20 |
+| 목록 페이지의 후속 링크 상한 | 3 | 10 |
+| 상품 페이지의 후속 리뷰 링크 상한 | 3 | 1 |
+| 후속 리뷰 탐색 중단 기준 | `review_hops > 5` | `review_hops > 2` |
 
-### 5.1 재귀 크롤러: 끝나는 것이 보장되는 탐색
-- **종료 조건**
-  - `MAX_DEPTH = 6` 비상 브레이크
-  - 방문 URL 집합(`visited`)을 재귀 호출에 넘겨 같은 페이지를 다시 방문하지 않음
-  - 다음 링크가 없으면 `_noop` 아이템 하나를 반환해서 재귀 호출이 바로 끝남
-- **검색 모드에 따른 확장 제한**
-  - 키워드에 영문+숫자 토큰이 있으면 `MODEL`(모델 하나를 깊게), 아니면 `CATEGORY`(제품군을 넓게)
-  - 모드마다 페이지당 다음 링크 수, 리뷰 페이지 홉 수의 상한이 다름
+방문 이력과 기준 도메인 접미사 검사로 탐색 범위를 줄입니다. 링크 후보는 최대 200개, AI에 전달하는 정리 본문은 약 30,000자로 제한합니다. ScrapingAnt는 `browser=true`, `proxy_type=residential`, 60초 타임아웃, 요청 배치 크기 2를 사용하며 `UK`는 프록시 국가 `GB`로 변환합니다.
 
-  | 모드 | 목록 링크 | 리뷰 링크 | 리뷰 홉 |
-  |---|---|---|---|
-  | MODEL | 3 | 3 | 5 |
-  | CATEGORY | 10 | 1 | 2 |
+차단·수집 실패 시 같은 URL을 최대 2회 추가 시도할 수 있습니다. 대체 URL이 전달되면 실패 유형에 따라 대체 경로를 사용하지만, 현재 마스터는 `fallback_urls: []`를 전달하므로 홈페이지·검색엔진 대체 경로가 자동 생성되지는 않습니다. 실행 결과에는 리뷰 외에 `_crawl_log` 진단 행도 포함됩니다.
 
-- **페이지 판정**: LLM이 각 페이지를 `PRODUCT` / `LIST` / `IRRELEVANT`로 분류하고, 다음 행동(리뷰 추출 또는 하위 링크 선택)을 결정
-  - CATEGORY 모드에서는 특정 브랜드에 치우치지 않도록 여러 브랜드 제품을 골고루, 리뷰 수가 많은 제품부터 선택
+### 3.4 YouTube 수집기
 
-### 5.2 실패에 대비한 진입 경로
-- 사이트마다 시작 경로를 3단계로 준비: **AI가 만든 사이트 검색 URL → 사이트 홈페이지 → DuckDuckGo `site:` 검색**
-  - AI가 검색 URL 형식을 틀리게 만들어도(404, 빈 페이지) 다음 경로로 자동 전환
-- 봇 차단·수집 실패는 같은 깊이에서 최대 2회 재시도하고, 그래도 실패하면 다음 대체 경로로 이동
-- 재시도는 깊이를 늘리지 않아서 깊이 제한에 걸려 탐색이 끊기지 않음
+검색 URL에 4분 미만 필터를 추가하고 HTML에서 `videoId`를 추출해 중복 제거 후 최대 5개를 분석합니다. Gemini 요청의 타임아웃은 300초이며, 분석 텍스트가 20자 이하인 응답은 제외합니다. 결과는 `YT_<video_id>` / `content_type=VIDEO`로 변환한 뒤 공통 AI 분석 단계로 전달합니다.
 
-### 5.3 LLM 환각 차단
-- **링크는 코드가 뽑고 LLM은 번호만 고름**
-  - 페이지의 링크를 코드로 추출·정규화한 뒤 번호를 붙여 LLM에 전달 (최대 200개)
-  - 프롬프트에서 "목록에 없는 링크나 URL은 만들지 말 것"을 강제하고, 응답도 번호로만 받음
-- **차단 페이지는 LLM에 넘기지 않음**
-  - 캡차, Cloudflare 챌린지, 현지어 봇 차단 문구(폴란드어·독일어 포함)를 정규식으로 먼저 감지
-  - 차단 페이지를 LLM에 주면 링크를 지어내는 현상을 확인하고 넣은 단계
-- **노이즈 링크 사전 제거**: 로그인, 장바구니, 약관, SNS, 정적 리소스 링크를 미리 걸러 LLM 입력을 줄임
-- **검색 결과 페이지는 LLM 없이 처리**: DuckDuckGo 결과는 리다이렉트 파라미터(`uddg`)를 코드로 디코딩해 링크만 추출하고, 광고 링크는 제외
-- **수집 원문 보정**: ScrapingAnt 마크다운이 긴 URL 중간에 넣는 줄바꿈을 제거한 뒤 링크를 추출
+검색 필터에 의존하므로 영상 길이를 별도로 검증하지 않습니다. 이 수집기의 `published_at`은 실제 영상 게시일이 아니라 분석 시각입니다.
 
-### 5.4 데이터 계약과 파이프라인
-- **공통 VoC 스키마**: 채널과 상관없이 `voc_id`, `source_site`, `content_type`(REVIEW/POST/COMMENT), `parent_id`, `published_at` 형식으로 통일
-  - Reddit은 게시글과 댓글을 분리하고 `parent_id`로 연결
-  - 날짜는 Unix timestamp와 문자열을 모두 `YYYY-MM-DD`로 변환
-- **중복 제거**: 원본 ID(Reddit) 또는 콘텐츠 해시(쇼핑몰 리뷰)로 만든 `voc_id`로 수집기 결과를 합칠 때 중복 제거
-- **배치 분석**: VoC를 15건 단위로 묶어 LLM에 전달해서 호출 수와 토큰 비용을 줄임
-- **병합 시 원본 우선**: LLM 결과는 `voc_id`로 원본에 결합하고, 분석에 실패한 항목도 기본값을 넣어 원본은 버리지 않음
-- **LLM 출력 방어 파싱**: 코드블록이나 설명문이 섞인 응답에서도 JSON 배열만 추출
+## 4. 입력과 저장 데이터 계약
 
-### 5.5 저장 스키마 (`global_voc_insights`)
+### 4.1 수집 진입점
 
-| 구분 | 필드 |
-|---|---|
-| 수집 메타 | `voc_id`, `country`, `keyword`, `source_site`, `category`, `content_type`, `parent_id`, `published_at` |
-| 원문 | `content` |
-| 제품 4단계 계층 | `product_category` → `target_brand` → `product_line` → `model_code` |
-| 키워드 3분할 | `positive_keywords`, `negative_keywords`, `topic_tags` |
-| 인사이트 | `kr_summary`, `ai_sentiment`, `user_intent`, `competitors` |
-| 분석 메타 | `ai_metadata.lg_mentioned`, `ai_metadata.analyzed_at` |
+```http
+POST /webhook/voc-crawler-start
+Content-Type: application/json
+```
 
-- 제품 계층과 키워드 필드는 대시보드의 필터·집계 축과 1:1로 대응하도록 설계
-- 분류값은 고정된 코드 체계를 사용
-  - `ai_sentiment`: `POSITIVE` / `NEUTRAL` / `NEGATIVE`
-  - `user_intent`: `EXPERIENCE`(후기) / `QUESTION`(구매 전 질문) / `COMPLAINT`(불만) / `COMPARISON`(비교) / `INFO`(정보 공유)
-  - `target_brand`: 표준 영문 브랜드명, 여러 브랜드 비교 글은 `Comparison`, 특정할 수 없으면 `General`
-
----
-
-## 6. API
-
-### 6.1 구성
-
-| 구분 | Method · Path | 호출 주체 | 처리 |
-|---|---|---|---|
-| 수집 실행 | `POST /webhook/voc-crawler-start` | 대시보드, 외부 스케줄러 | n8n 시트 1 |
-| 출처 탐색 | `POST /webhook/discover-voc-sources` | 대시보드 | 출처 선택형 수집 1단계 |
-| 선택 수집 | `POST /webhook/collect-selected-sources` | 대시보드 | 출처 선택형 수집 2단계 |
-| 일괄 수집(CSV) | `POST /webhook/collect-global-voc` | 단건 스크립트, 내부 테스트 | 탐색부터 스크래핑까지 한 번에 실행하고 CSV 파일 반환 |
-
-- 모든 요청은 `Content-Type: application/json`
-- 대시보드의 엔드포인트 주소는 설정 화면에서 바꿀 수 있어서 로컬·서버 환경을 코드 수정 없이 전환
-- `server.js`는 출처 탐색·선택 수집과 같은 규격의 Mock 응답을 제공해서, 백엔드 없이도 프론트엔드를 개발·검증할 수 있음
-
-### 6.2 수집 실행 `POST /webhook/voc-crawler-start`
-수집부터 분석·DB 적재까지 전체 파이프라인을 실행
-
-**Request**
 ```json
 {
   "country": "PL",
-  "keyword": "세탁건조기"
+  "keyword": "세탁건조기",
+  "include_youtube": false
 }
 ```
 
-| 필드 | 타입 | 필수 | 설명 |
-|---|---|---|---|
-| `country` | string | 필수 | 국가명 또는 2자리 국가 코드. LLM이 표준 코드로 변환 (`Poland` → `PL`) |
-| `keyword` | string | 필수 | 제품군 또는 모델명. 모델명(영문+숫자)이면 MODEL 모드, 아니면 CATEGORY 모드로 수집 |
+| 필드 | 처리 방식 |
+| --- | --- |
+| `country` | 미입력 시 `US`. 일관된 처리를 위해 2자리 국가 코드 사용 |
+| `keyword` | 미입력 시 빈 문자열. 실행 전에 호출 측에서 유효한 검색어 확인 |
+| `include_youtube` | 불리언 `true` 또는 문자열 `"true"`일 때만 영상 수집 추가. 기본 `false` |
 
-**처리 순서**
-1. GPT가 현지어 검색어와 수집 대상(현지 쇼핑몰·리뷰 사이트 5곳 이상 + Reddit 1곳)을 생성
-2. URL 도메인으로 채널을 분기해서 Reddit 수집기 / 재귀 크롤러를 사이트별로 호출 (`waitForSubWorkflow: true`)
-3. 수집된 VoC를 취합하고 중복을 제거한 뒤 15건씩 GPT로 분석
-4. 원본과 분석 결과를 병합해 Supabase `global_voc_insights`에 저장
+Webhook은 `responseMode=lastNode`인 동기 처리입니다. 고정된 응답 JSON이나 작업 ID를 반환하는 계약, 진행률 조회 API, CSV 응답은 이 4개 워크플로우에 정의되어 있지 않습니다. HTTP 호출자는 전체 수집·분석 시간과 프록시 타임아웃을 함께 고려해야 합니다.
 
-**Response** `200 OK`
-- 동기 방식(`responseMode: lastNode`): 파이프라인이 끝나면 마지막 노드인 DB 저장 결과를 그대로 반환
+### 4.2 최종 저장 대상: `global_voc_insights`
 
-```json
-[
-  {
-    "voc_id": "1x7k2m",
-    "country": "PL",
-    "keyword": "세탁건조기",
-    "source_site": "MediaExpert",
-    "category": "E-commerce",
-    "content_type": "REVIEW",
-    "content": "[Brand: LG | Product: WashCombo | Model: WHX9516TBC | Rating: 5/5] ...",
-    "parent_id": null,
-    "published_at": "2026-09-14",
-    "product_category": "세탁건조기",
-    "target_brand": "LG",
-    "product_line": "WashCombo",
-    "model_code": "WHX9516TBC",
-    "positive_keywords": ["건조성능", "공간활용"],
-    "negative_keywords": ["가격"],
-    "topic_tags": ["건조성능", "공간활용", "가격"],
-    "kr_summary": "좁은 욕실에도 들어가고 건조가 잘 되지만 가격이 비싸다는 후기",
-    "ai_sentiment": "POSITIVE",
-    "user_intent": "EXPERIENCE",
-    "competitors": ["Samsung"],
-    "ai_metadata": { "lg_mentioned": true, "analyzed_at": "2026-11-19T12:00:00.000Z" }
-  }
-]
+다음은 최종 병합 노드가 생성하는 필드입니다. 테이블 생성 SQL이나 DB 마이그레이션은 포함하지 않으며, 아래 타입은 워크플로우 출력에 대응하는 구성 예시입니다.
+
+| 필드 | 출력 값 / 대응 타입 예시 | 의미 |
+| --- | --- | --- |
+| `voc_id` | 문자열 / `text` | 출처별 식별자 |
+| `country`, `keyword` | 문자열 / `text` | 호출자가 입력한 국가·원래 검색어 |
+| `source_site`, `category` | 문자열 / `text` | 사이트명과 채널 유형 |
+| `content_type` | `POST`, `COMMENT`, `REVIEW`, `VIDEO` / `text` | 원문 유형 |
+| `content` | 문자열 / `text` | 수집 원문 또는 영상 분석 텍스트 |
+| `parent_id` | 문자열 또는 `null` / `text` | Reddit 상위 글 식별자 또는 쇼핑몰·영상 URL |
+| `published_at` | 날짜·시각 문자열 또는 `null` | 원문 날짜. 채널별 정밀도와 의미가 다름 |
+| `product_category`, `target_brand` | 문자열 / `text` | 제품군·평가 대상 브랜드 |
+| `product_line`, `model_code` | 문자열 / `text` | 제품 라인·모델명 |
+| `positive_keywords`, `negative_keywords` | 문자열 배열 / `text[]` | 대상 브랜드의 긍정·부정 키워드 |
+| `topic_tags`, `competitors` | 문자열 배열 / `text[]` | 주제와 함께 언급된 다른 브랜드 |
+| `kr_summary` | 문자열 / `text` | 한국어 요약 |
+| `ai_sentiment`, `user_intent` | 문자열 / `text` | 감성·발화 의도 |
+| `ai_metadata` | 객체 / `jsonb` | `lg_mentioned`, `dashboard_type`, `analyzed_at` |
+
+브랜드·제품·모델은 상품 리뷰 말머리 값을 AI 결과보다 우선합니다. 브랜드를 확정하지 못하면 `General`, 모델을 알 수 없으면 `Unknown`을 사용합니다. AI JSON 파싱 실패 시에도 원문과 기본값을 병합하며, 요약에는 실패 안내 문구가 들어갑니다.
+
+`ai_metadata.dashboard_type`은 다음 기준으로 정합니다.
+
+- `PRODUCT_REVIEW`: 브랜드가 `General`이 아니고 긍정·부정 키워드가 하나 이상 있음.
+- `LIFE_PAINPOINT`: 위 조건에 해당하지 않으면서 의도가 `PAINPOINT`이거나, 브랜드가 `General`이고 부정 키워드가 있음.
+- `MARKET_TREND`: 나머지.
+
+쇼핑몰 수집기의 `sellers`와 YouTube 수집기의 `source_url`은 최종 병합 필드에 포함되지 않습니다. 원문 URL은 쇼핑몰·영상의 경우 `parent_id`로 남습니다.
+
+## 5. 실행과 환경 구성
+
+### 5.1 n8n 실행
+
+Docker와 Docker Compose가 설치된 환경에서 실행합니다.
+
+```powershell
+cd infra/n8n
+Copy-Item .env.example .env
+# .env의 N8N_ENCRYPTION_KEY를 충분히 긴 임의 문자열로 설정
+docker compose up -d
 ```
 
-### 6.3 출처 탐색 `POST /webhook/discover-voc-sources`
-수집하기 전에 후보 출처 목록을 받아서 사용자가 수집할 사이트를 고를 수 있게 함
+`http://localhost:5678`에서 n8n에 접속합니다. Compose는 `Asia/Seoul` 시간대, `WEBHOOK_URL=http://localhost:5678/`, `n8n_data` 영속 볼륨을 사용합니다. 외부 배포 시 실제 Webhook 도메인에 맞게 설정해야 합니다. 원본 Compose의 이미지는 `n8nio/n8n`으로 버전이 고정되어 있지 않으므로, 운영 환경에서는 import 검증을 마친 버전 태그를 고정해 사용합니다.
 
-**Request**
-```json
-{ "country": "PL", "product": "LG WashCombo" }
+### 5.2 워크플로우 import 및 연결
+
+1. n8n의 **Import from File**로 `02`, `03`, `04` 수집기를 먼저 가져옵니다.
+2. `01-master-controller.json`을 가져옵니다.
+3. 마스터의 Execute Workflow 노드 3개에서 해당 인스턴스의 수집기를 다시 선택합니다. JSON의 `REPLACE_WITH_*_WORKFLOW_ID`는 연결 전 표시자입니다.
+4. 쇼핑몰 수집기의 자기 호출은 `={{ $workflow.id }}`를 사용합니다. 하위 워크플로우 호출 권한도 실행 계정에 맞게 확인합니다.
+5. 아래 Credentials를 각 노드에 연결합니다.
+6. SMTP 노드의 `sender@example.com`, `recipient@example.com`을 운영 주소로 바꾸거나, 알림을 사용하지 않으면 해당 노드를 비활성화합니다.
+7. DB 필드를 확인하고 테스트 실행을 마친 뒤 마스터를 게시·활성화합니다. 테스트 Webhook은 n8n 편집기의 테스트 수신 상태에서 사용합니다.
+
+배포용 JSON은 비활성 상태이며 원본의 Credentials 이름·ID, 인스턴스 메타데이터, 고정 실행 데이터(`pinData`), 개인 메일 주소를 제거하거나 예시 값으로 바꿨습니다. 노드 이름·연결·Code 로직과 API 요청 설정은 최종본을 유지합니다. 이는 파일 배포 작업이며 실행 중인 n8n 설정을 변경하지 않습니다.
+
+### 5.3 필요한 Credentials
+
+| 대상 | n8n Credential / 인증 방식 | 적용 위치 |
+| --- | --- | --- |
+| OpenAI | OpenAI API (`openAiApi`) | 마스터의 Chat Model 2개, 쇼핑몰의 Chat Model 1개 |
+| Apify | Query Auth (`httpQueryAuth`), 파라미터 `token` | Reddit HTTP Request |
+| ScrapingAnt | Header Auth (`httpHeaderAuth`), 헤더 `x-api-key` | 쇼핑몰 HTTP Request |
+| Gemini | Header Auth (`httpHeaderAuth`), 헤더 `x-goog-api-key` | YouTube Gemini HTTP Request |
+| Supabase | Supabase API (`supabaseApi`) | 마스터 DB Insert |
+| SMTP | SMTP (`smtp`) | 마스터 완료 메일 |
+
+외부 API 키는 n8n Credentials에서 관리합니다. Compose의 `.env`는 n8n 암호화 키 설정용이며 외부 서비스 Credentials를 자동 생성하지 않습니다. DB의 Data API 노출 권한과 RLS는 실제 접근 주체에 맞게 설정하고, 서버 전용 비밀 키를 브라우저 코드에 넣지 않습니다. [Supabase Data API 보안 문서](https://supabase.com/docs/guides/api/securing-your-api)를 참고하세요.
+
+### 5.4 호출 예시
+
+```powershell
+$body = @{
+  country = 'PL'
+  keyword = '세탁건조기'
+  include_youtube = $false
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri 'http://localhost:5678/webhook/voc-crawler-start' `
+  -ContentType 'application/json; charset=utf-8' `
+  -Body ([System.Text.Encoding]::UTF8.GetBytes($body))
 ```
 
-**Response** `200 OK`
-```json
-{
-  "status": "success",
-  "meta": { "country": "PL", "product": "LG WashCombo", "total_discovered": 2, "timestamp": "2026-11-19T12:00:00.000Z" },
-  "sources": [
-    {
-      "source_id": "src_pl_mediaexpert_01",
-      "site_name": "Media Expert",
-      "category": "가전 판매점",
-      "url": "https://www.mediaexpert.pl/...",
-      "description": "폴란드 대표 가전 양판점 실구매 리뷰"
-    },
-    {
-      "source_id": "src_pl_reddit_02",
-      "site_name": "Reddit r/Polska",
-      "category": "커뮤니티",
-      "url": "https://www.reddit.com/search/?q=pralka%20z%20suszark%C4%85",
-      "description": null
-    }
-  ]
-}
+## 6. 운영과 검증
+
+### 6.1 오류 처리의 범위
+
+| 상황 | 현재 동작 | 확인할 지점 |
+| --- | --- | --- |
+| 출처 생성 JSON 오류 | 파싱 오류를 던지고 중단 | 출처 생성 LLM 응답 |
+| 하위 수집기·일부 HTTP 오류 | `continueRegularOutput`으로 다음 처리 진행 | 해당 노드의 오류 출력과 실제 VOC 건수 |
+| 쇼핑몰 차단·빈 Markdown | `BLOCKED` / `SCRAPE_FAIL` 기록, 제한된 재시도 | `_crawl_log`, `retry`, `md_len`, `md_head` |
+| 쇼핑몰 AI JSON 오류 | `PARSE_ERROR`로 후속 탐색 제외 | 페이지 판정 응답 |
+| 인사이트 JSON 오류 | 원문을 기본값과 병합 | `kr_summary`, 빈 키워드 배열 |
+| Gemini 실패·짧은 응답 | 해당 영상 VOC 제외 | Gemini 노드 출력 |
+| DB Insert 오류 | 오류를 일반 출력으로 이어서 배치 순회 | DB 노드 오류와 실제 저장 행 |
+| SMTP 오류 | 메일 노드에 별도 오류 지속 설정 없음 | 저장 결과와 알림 실패를 따로 확인 |
+
+완료 메일은 배치 루프 종료 후 실행됩니다. DB 노드가 오류를 이어서 처리하므로 **메일 수신만으로 모든 행의 저장 성공을 판단할 수 없습니다.**
+
+### 6.2 현재 구현의 한계
+
+- 중복 제거는 수집 실행 내부의 `voc_id` Map 처리입니다. DB 저장은 Insert이며 Upsert·재실행 멱등성·요청별 트랜잭션은 구현되어 있지 않습니다.
+- 원문을 800자로 잘라 AI에 전달하므로 긴 리뷰·영상 분석의 뒷부분이 인사이트에 반영되지 않을 수 있습니다.
+- 출처 후보 URL은 LLM이 생성합니다. 후보 생성 자체를 실제 리뷰 존재 확인으로 해석하면 안 됩니다.
+- URL 분기는 문자열 포함 검사, 크롤러 도메인 제한은 접미사 검사입니다. 임의 URL 입력에 대한 엄격한 호스트 허용 목록이나 네트워크 접근 제어를 제공하지 않습니다.
+- 마스터 취합은 `$items(...)`와 루프 입력을 사용합니다. 복수 출처를 실행한 뒤 각 반복의 결과가 모두 취합됐는지 n8n 실행 이력에서 확인해야 합니다.
+- 깊이·분기 수·타임아웃 제한은 있지만 전체 실행의 전역 요청 예산, 백오프, 작업 큐, 별도 상태 조회 기능은 없습니다.
+- Webhook 노드에 인증과 입력 스키마 검증이 설정되어 있지 않습니다. 외부 공개 시 호출 계층에서 접근 제어와 입력 검증을 구성해야 합니다.
+- 기존 대시보드의 출처 탐색·선택 수집 화면이 사용하는 API와 이 마스터의 단일 수집 Webhook은 계약이 다릅니다. 대시보드 연동 변경은 이번 정리 범위에 포함하지 않습니다.
+
+### 6.3 정적 검사와 실행 검증
+
+```powershell
+# 저장소 루트에서 실행. 추가 npm 패키지 불필요.
+node tools/validate-workflows.mjs
 ```
 
-| 필드 | 설명 |
-|---|---|
-| `source_id` | 2단계 요청에서 출처를 지정하는 식별자 |
-| `category` | 출처 유형. 대시보드에서 유형 배지로 표시 |
-| `description` | 한 줄 설명. 값이 없으면 `null`로 보내고, 대시보드는 임의로 채우지 않고 "사이트 설명 미확인"으로 표시 |
+검사기는 4개 JSON의 파싱, 노드 이름·ID 중복, 연결 대상, 정적 노드 참조, Code 노드 JavaScript 문법과 배포용 메타데이터를 확인합니다. 외부 API, Credentials, n8n 표현식 평가, DB 연결과 실제 실행은 검사하지 않습니다.
 
-### 6.4 선택 수집 `POST /webhook/collect-selected-sources`
-사용자가 고른 출처만 수집해서 CSV 파일로 반환
-
-**Request**
-```json
-{
-  "country": "PL",
-  "product": "LG WashCombo",
-  "selected_sources": [
-    { "source_id": "src_pl_mediaexpert_01", "site_name": "Media Expert", "url": "https://www.mediaexpert.pl/..." }
-  ]
-}
-```
-
-**Response** `200 OK`
-- `Content-Type: text/csv; charset=utf-8`
-- `Content-Disposition: attachment; filename="scraped_voc_results.csv"`
-- Excel에서 한글이 깨지지 않도록 UTF-8 BOM 포함
-
-| 컬럼 | 설명 |
-|---|---|
-| `country`, `product` | 요청 값 |
-| `site_name`, `source_url` | 출처 |
-| `proxy_type`, `extraction_type` | 서버에서 적용한 수집 설정 |
-| `status_code` | 대상 사이트의 HTTP 응답 코드 |
-| `voc_content` | 수집한 원문 |
-
-### 6.5 일괄 수집 `POST /webhook/collect-global-voc`
-- 요청 `{ country, product }` 하나로 출처 탐색과 스크래핑을 연속 실행
-- 결과는 `respondToWebhook` 노드에서 CSV 바이너리로 반환 (`Content-Disposition: attachment`)
-
-### 6.6 서버에서만 관리하는 값
-클라이언트는 다음 값을 보내지 않고, n8n 노드와 Credentials에서만 관리
-
-| 값 | 위치 |
-|---|---|
-| 외부 API 키 (OpenAI, Gemini, ScrapingAnt, Apify, Supabase) | n8n Credentials |
-| `proxy_type` (residential / datacenter) | ScrapingAnt 노드 |
-| `extraction_type` (markdown) | ScrapingAnt 엔드포인트 |
-| 국가 코드 예외 매핑 (`UK` → `GB`) | ScrapingAnt 노드 표현식 |
-
-### 6.7 내부에서 호출하는 외부 API
-
-| API | 호출 | 인증 | 주요 설정 |
-|---|---|---|---|
-| **OpenAI** | n8n LangChain Chat Model 노드 | Credentials | `gpt-4o-mini`, temperature 0.1~0.2 |
-| **Gemini** | 영상 분석 워크플로우 | Credentials | Gemini Flash, 영상 URL + 분석 지시문 |
-| **ScrapingAnt** | `GET https://api.scrapingant.com/v2/markdown` | Header `x-api-key` | `browser=true`, `proxy_country={국가}`, `proxy_type=residential`, 동시 요청 2개, 타임아웃 60초 |
-| **Apify** | `POST https://api.apify.com/v2/acts/trudax~reddit-scraper-lite/run-sync-get-dataset-items` | Query `token` | 게시글 최대 5개, 게시글당 댓글 최대 15개, 최대 30건, 타임아웃 180초 |
-| **Supabase** | n8n Supabase 노드 Insert | Credentials | 테이블 `global_voc_insights`, 입력 필드 자동 매핑 |
-
-- ScrapingAnt는 결과를 마크다운으로 받아서 HTML 파싱 없이 LLM에 바로 넣을 수 있게 함
-- Apify는 동기 실행 엔드포인트(`run-sync-get-dataset-items`)를 써서 별도 폴링 없이 한 번의 호출로 결과를 받음
-
-### 6.8 오류 처리 규칙
-
-| 상황 | 처리 |
-|---|---|
-| 수집 대상 생성 LLM이 JSON이 아닌 값을 반환 | 원본 응답을 포함한 오류로 즉시 중단. 잘못된 대상으로 수집 비용을 쓰지 않음 |
-| 대상 사이트 봇 차단·캡차 | 같은 깊이에서 최대 2회 재시도 → 대체 경로(홈페이지 → DDG) |
-| 검색 URL 오류(404, 빈 페이지) | 재시도 없이 바로 대체 경로로 이동 |
-| 분석 LLM 응답 파싱 실패 | 해당 배치를 기본값으로 채우고 원본은 그대로 저장 |
-| 하위 워크플로우 결과 없음 | 빈 결과로 취합해서 다른 채널 수집은 계속 진행 |
-
-- 크롤링 경로(깊이, URL, 판정 유형, 리뷰 수, 재시도·대체 경로 여부)를 `_crawl_log`로 함께 반환해서 실행 결과에서 전체 탐색 경로를 추적할 수 있음
-
----
+실행 환경에서는 채널별 소규모 실행 후 `voc_id`, 원문, 상위 식별자, 작성일과 최종 저장 행을 확인합니다. 이어서 다중 출처·15건 초과 배치·영상 포함 옵션·차단 재시도를 확인하고, DB 실패 시 완료 메일과 저장 결과가 다를 수 있는지도 점검합니다. 이 저장소 정리 과정에서는 유료 API 호출, DB 쓰기, 메일 발송을 실행하지 않았습니다.
 
 ## 7. 대시보드
 
@@ -478,87 +298,9 @@ flowchart LR
 
 ---
 
-## 8. 보안
+## 8. ?? ??
 
-- **비밀 정보 격리**
-  - 모든 외부 API 키는 n8n Credentials에 저장하고, 워크플로우 JSON에는 참조만 남김
-  - 저장소, 프론트엔드 코드, 브라우저 스토리지, 요청 본문 어디에도 API 키를 두지 않음
-  - 로컬 테스트 스크립트도 키를 환경변수(`SCRAPINGANT_API_KEY`)로만 읽음
-- **XSS 방지**: 수집한 외부 텍스트는 이스케이프한 뒤 렌더링
-
----
-
-## 9. 테스트와 검증
-
-- **n8n 밖에서 같은 로직 실행**: `test-scrape.js`
-  - 워크플로우 JSON에서 Code 노드 소스를 그대로 읽어 Node.js에서 실행
-  - 워크플로우 전체를 돌리지 않고 특정 사이트의 수집·차단 감지·링크 추출 결과를 바로 확인
-  ```bash
-  export SCRAPINGANT_API_KEY="..."
-  node test-scrape.js "https://www.mediaexpert.pl/" PL "pralka z suszarką"
-  ```
-- **노드 코드 분리 보관**: `sheet1-*.js`, `sheet3-*.js`에 Code 노드 로직을 따로 두어 diff와 리뷰가 가능하도록 관리
-- **Mock API 서버**: `server.js`로 대시보드 연동 규격을 백엔드 없이 검증
-  - 데모 모드 화면에는 `[시뮬레이션]` 라벨 표시
-
----
-
-## 10. 디렉터리 구조
-
-```
-.
-├── [시트 1] 마스터 컨트롤러 ….json     # 오케스트레이션 + AI 배치 분석 + Supabase 적재
-├── [시트 2] Reddit 전용 2-Depth 수집기 ….json
-├── [시트 3] 재귀 크롤러 ….json
-├── sheet1-master-controller.json       # 시트 1 이전 버전
-├── sheet1-1depth-split.js              # Code 노드: 수집 대상 분리·대체 경로 구성
-├── sheet3-input-prep.js                # Code 노드: 재귀 입력 정리·검색 모드 판정
-├── sheet3-page-prep.js                 # Code 노드: 페이지 정리·차단 감지·링크 추출
-├── sheet3-result.js                    # Code 노드: 판정 결과 → 리뷰 / 다음 링크 / 재시도
-├── test-scrape.js                      # n8n 없이 시트 3 로직을 실행하는 테스트 하네스
-├── docker-compose.yml                  # n8n 컨테이너 실행 구성
-├── .env.example                        # 컨테이너 환경변수 템플릿
-├── docs/images/                       # 대시보드 화면·사용 흐름 GIF
-└── global-voc-agent/
-    ├── 01-architecture-and-api-spec.md # 대시보드 연동 API 규격서
-    ├── global_voc_scraper_workflow.json# 일괄 수집(CSV) 워크플로우
-    ├── server.js                       # 대시보드 정적 서빙 + Mock API
-    └── dashboard/
-        └── index.html                  # 통합 대시보드 (9개 화면)
-```
-
----
-
-## 11. 실행 방법
-
-### 11.1 n8n 실행
-- `cp .env.example .env` 후 `N8N_ENCRYPTION_KEY` 입력
-- [2.3 Docker 구성](#23-docker-구성)의 `docker compose up -d`로 n8n 실행
-- `http://localhost:5678` 접속 → 워크플로우 JSON을 **Import from File**
-- Credentials 등록
-  - OpenAI, Google Gemini
-  - ScrapingAnt: Header Auth (`x-api-key`)
-  - Apify: Query Auth (`token`)
-  - Supabase
-- 시트 1의 Execute Workflow 노드가 시트 2·3을 가리키는지 확인
-
-### 11.2 수집 실행
-```bash
-curl -X POST http://localhost:5678/webhook/voc-crawler-start \
-  -H "Content-Type: application/json" \
-  -d '{"country": "PL", "keyword": "세탁건조기"}'
-```
-
-### 11.3 대시보드
-```bash
-cd global-voc-agent
-node server.js
-```
-- 통합 대시보드: http://localhost:3005/
-- 특정 화면 바로 열기: http://localhost:3005/#/monitor
-- 외부 패키지 없이 Node.js 내장 모듈로 실행. 서버 없이 `index.html`을 브라우저로 직접 열어도 동작
-- 설정 화면에서 n8n Webhook 주소를 지정하면 실제 모드로 동작
-
-### 11.4 로컬 테스트
-- `test-scrape.js`는 시트 3 워크플로우를 `sheet3-recursive-crawler.json` 이름으로 읽음
-- `[시트 3] 재귀 크롤러 ….json`을 이 이름으로 복사한 뒤 실행
+- [AI system prompts](docs/ai-system-prompts.md)
+- [Repository layout](docs/repository-layout.md)
+- [n8n workflow import/export](https://docs.n8n.io/workflows/export-import/)
+- [Supabase Data API security](https://supabase.com/docs/guides/api/securing-your-api)
